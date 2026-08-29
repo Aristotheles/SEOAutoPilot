@@ -10,6 +10,7 @@ const {demoReport} = require('./src/demo-report');
 const {createProject, getPrivateProject, listProjects, updateProject} =
   require('./src/project-store');
 const google = require('./src/google-search-console');
+const {syncWorkflows, transition} = require('./src/workflow');
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.PORT || 4173);
@@ -65,7 +66,7 @@ function projectIdFrom(pathname, suffix) {
 }
 async function routeApi(request, response, requestUrl) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.3.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.4.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -84,6 +85,38 @@ async function routeApi(request, response, requestUrl) {
     } catch (error) { json(response, 400, {error: error.message}); }
     return true;
   }
+  const workflowProjectId = projectIdFrom(requestUrl.pathname, 'workflows');
+  if (request.method === 'GET' && workflowProjectId) {
+    try {
+      const project = getPrivateProject(workflowProjectId);
+      if (!project) json(response, 404, {error: 'Proje bulunamadı.'});
+      else {
+        const result = projectReport(project);
+        const workflows = syncWorkflows(project.id, result.report, project.workflows || []);
+        updateProject(project.id, {workflows});
+        json(response, 200, {workflows});
+      }
+    } catch (error) { json(response, 400, {error: error.message}); }
+    return true;
+  }
+  const workflowAction = requestUrl.pathname.match(
+      /^\/api\/projects\/([^/]+)\/workflows\/([^/]+)\/action$/u);
+  if (request.method === 'POST' && workflowAction) {
+    try {
+      const projectId = decodeURIComponent(workflowAction[1]);
+      const workflowId = decodeURIComponent(workflowAction[2]);
+      const payload = await readBody(request);
+      const project = getPrivateProject(projectId);
+      if (!project) throw new Error('Proje bulunamadı.');
+      const workflows = [...(project.workflows || [])];
+      const index = workflows.findIndex((item) => item.id === workflowId);
+      if (index < 0) throw new Error('Görev bulunamadı.');
+      workflows[index] = transition(workflows[index], payload.action);
+      updateProject(project.id, {workflows});
+      json(response, 200, {workflow: workflows[index]});
+    } catch (error) { json(response, 400, {error: error.message}); }
+    return true;
+  }
   const importId = projectIdFrom(requestUrl.pathname, 'import');
   if (request.method === 'POST' && importId) {
     try {
@@ -93,8 +126,9 @@ async function routeApi(request, response, requestUrl) {
       if (!project) throw new Error('Proje bulunamadı.');
       const loaded = loadExport(payload.directory.trim(),
           {clusters: project.id === 'lingodecoder' ? undefined : []});
+      const workflows = syncWorkflows(project.id, loaded.report, project.workflows || []);
       updateProject(importId, {csvDirectory: loaded.directory, lastSyncReport: null,
-        lastSyncAt: new Date().toISOString()});
+        lastSyncAt: new Date().toISOString(), workflows});
       json(response, 200, {report: loaded.report, mode: 'live', directory: loaded.directory,
         projectId: importId});
     } catch (error) { json(response, 400, {error: error.message, code: error.code || 'IMPORT_FAILED'}); }
@@ -134,7 +168,9 @@ async function routeApi(request, response, requestUrl) {
       const report = analyzeExport(tables,
           {clusters: project.id === 'lingodecoder' ? undefined : []});
       report.source = 'search_console_api';
-      updateProject(project.id, {lastSyncReport: report, lastSyncAt: new Date().toISOString()});
+      const workflows = syncWorkflows(project.id, report, project.workflows || []);
+      updateProject(project.id, {lastSyncReport: report, lastSyncAt: new Date().toISOString(),
+        workflows});
       json(response, 200, {report, mode: 'api', directory: '', projectId: project.id});
     } catch (error) { json(response, 400, {error: error.message}); }
     return true;

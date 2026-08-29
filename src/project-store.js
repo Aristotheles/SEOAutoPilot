@@ -12,7 +12,7 @@ const starterProject = Object.freeze({
   searchConsoleProperty: 'sc-domain:lingodecoder.de', locales: ['tr', 'en'],
   status: 'active', createdAt: '2026-08-29T00:00:00.000Z',
   updatedAt: '2026-08-29T00:00:00.000Z', csvDirectory: '', oauth: null,
-  lastSyncAt: null, lastSyncReport: null,
+  lastSyncAt: null, lastSyncReport: null, workflows: [],
 });
 
 function initialState() { return {schemaVersion: 1, projects: [{...starterProject}]}; }
@@ -31,7 +31,7 @@ function writeState(state) {
   fs.renameSync(temporary, STATE_FILE);
 }
 function publicProject(project) {
-  const {oauth, lastSyncReport, ...safe} = project;
+  const {oauth, lastSyncReport, workflows, ...safe} = project;
   return {...safe, connection: oauth?.refreshToken ? 'connected' : 'disconnected',
     hasReport: Boolean(lastSyncReport || project.csvDirectory)};
 }
@@ -61,7 +61,7 @@ function createProject(input) {
     searchConsoleProperty: `sc-domain:${hostname.replace(/^www\./u, '')}`,
     locales: Array.isArray(input.locales) && input.locales.length ? input.locales : ['tr'],
     status: 'active', createdAt: now, updatedAt: now, csvDirectory: '', oauth: null,
-    lastSyncAt: null, lastSyncReport: null};
+    lastSyncAt: null, lastSyncReport: null, workflows: []};
   state.projects.push(project);
   writeState(state);
   return publicProject(project);
@@ -71,7 +71,7 @@ function updateProject(id, updates) {
   const index = state.projects.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Proje bulunamadı.');
   const allowed = ['name', 'siteUrl', 'searchConsoleProperty', 'locales',
-    'csvDirectory', 'oauth', 'lastSyncAt', 'lastSyncReport'];
+    'csvDirectory', 'oauth', 'lastSyncAt', 'lastSyncReport', 'workflows'];
   const clean = Object.fromEntries(Object.entries(updates)
       .filter(([key]) => allowed.includes(key)));
   state.projects[index] = {...state.projects[index], ...clean,

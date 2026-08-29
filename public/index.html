@@ -29,6 +29,10 @@
           <svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg>
           Fırsatlar <span class="nav-count" id="opportunityCount">4</span>
         </button>
+        <button class="nav-item" data-view="workflows">
+          <svg viewBox="0 0 24 24"><path d="M9 11l2 2 4-5M5 3h14v18H5V3Z"/><path d="M8 17h8"/></svg>
+          Onay kuyruğu <span class="nav-count approval-count" id="approvalCount">0</span>
+        </button>
         <button class="nav-item" data-view="queries">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
           Sorgular
@@ -139,6 +143,18 @@
           <div class="page-heading compact"><div><p class="eyebrow">FIRSAT RADARI</p><h1>Aksiyon kuyruğu</h1><p>Veriye göre sıralanmış, insan onayı bekleyen SEO hamleleri.</p></div></div>
           <div class="filter-row"><button class="filter active" data-filter="all">Tümü</button><button class="filter" data-filter="UPDATE_EXISTING">Güncelle</button><button class="filter" data-filter="HOLD">Bekle</button><button class="filter" data-filter="NEW_PAGE">Yeni sayfa</button></div>
           <div id="opportunityBoard" class="opportunity-board"></div>
+        </section>
+
+        <section class="view" id="view-workflows">
+          <div class="page-heading compact"><div><p class="eyebrow">KONTROLLÜ OTOMASYON</p><h1>Onay ve uygulama kuyruğu</h1><p>SEO sinyalinden ölçülen sonuca kadar her adımın sahibi ve durumu belli.</p></div><button class="primary-button" id="refreshWorkflows">Akışı yenile</button></div>
+          <div class="workflow-summary">
+            <article><span class="summary-icon auto">⚡</span><div><small>Otomatik hazırlanan</small><strong id="automatedCount">0</strong></div></article>
+            <article><span class="summary-icon approval">✓</span><div><small>Onay bekleyen</small><strong id="waitingCount">0</strong></div></article>
+            <article><span class="summary-icon execution">→</span><div><small>Uygulamaya hazır</small><strong id="approvedCount">0</strong></div></article>
+            <article><span class="summary-icon monitoring">◌</span><div><small>İzlenen</small><strong id="monitoringCount">0</strong></div></article>
+          </div>
+          <div class="automation-policy panel"><div><span class="policy-mark">A</span><div><strong>Autopilot sınırı</strong><p>Analiz, önceliklendirme, brief ve takip otomatik. Siteye dokunan her değişiklik senden onay ister.</p></div></div><span>İnsan onayı aktif</span></div>
+          <div class="workflow-board" id="workflowBoard"></div>
         </section>
 
         <section class="view" id="view-queries">

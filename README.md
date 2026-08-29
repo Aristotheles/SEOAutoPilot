@@ -49,6 +49,21 @@ http://127.0.0.1:4173/oauth/google/callback
 
 İstemci gizli anahtarı kaynak koduna veya GitHub'a yazılmaz.
 
+## Kontrollü otomasyon
+
+Her analizden sonra fırsatlar otomatik olarak kalıcı iş akışlarına çevrilir:
+
+1. Sinyal ve arama niyeti doğrulanır.
+2. Etki, veri güveni ve ürün uyumundan 0–100 öncelik puanı hesaplanır.
+3. Uygulama brifi ve sonraki adımlar hazırlanır.
+4. Siteye etki edecek değişiklik kullanıcı onayına sunulur.
+5. Onaylanan görev uygulama kuyruğuna alınır.
+6. Uygulama sonrasında 14 ve 28 günlük izleme dönemi başlatılır.
+
+Analiz, puanlama, brief ve izleme otomatik olabilir. İçerik yayınlama, mevcut
+sayfayı değiştirme, yönlendirme ve silme işlemleri kullanıcı onayı olmadan
+çalıştırılmaz.
+
 Analiz motoru mevcut Search Console CSV dışa aktarımlarını okuyarak:
 
 - sorguları ürünle ilişkili kümelere ayırır,

@@ -1,7 +1,7 @@
 'use strict';
 
 const state = {report: null, mode: 'demo', directory: '', filter: 'all',
-  projects: [], project: null, googleStatus: null};
+  projects: [], project: null, googleStatus: null, workflows: []};
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const format = new Intl.NumberFormat('tr-TR');
@@ -13,7 +13,17 @@ const actionMeta = {
   CTR_TEST: {label: 'CTR testi', className: 'new', icon: 'A/B'},
 };
 const confidenceLabel = {very_low: 'Çok düşük', low: 'Düşük', medium: 'Orta', high: 'Yüksek', very_high: 'Çok yüksek'};
-const viewLabels = {overview: 'Genel bakış', opportunities: 'Fırsatlar', queries: 'Sorgular', pages: 'Sayfalar', data: 'Veri kaynakları'};
+const viewLabels = {overview: 'Genel bakış', opportunities: 'Fırsatlar',
+  workflows: 'Onay kuyruğu', queries: 'Sorgular', pages: 'Sayfalar',
+  data: 'Veri kaynakları'};
+const workflowMeta = {
+  DISCOVERED: {label: 'Otomatik izleniyor', className: 'discovered'},
+  AWAITING_APPROVAL: {label: 'Onay bekliyor', className: 'awaiting'},
+  APPROVED: {label: 'Uygulamaya hazır', className: 'approved'},
+  MONITORING: {label: 'Etki izleniyor', className: 'monitoring'},
+  COMPLETED: {label: 'Tamamlandı', className: 'completed'},
+  REJECTED: {label: 'Reddedildi', className: 'rejected'},
+};
 
 function number(value, digits = 0) { return Number(value || 0).toLocaleString('tr-TR', {maximumFractionDigits: digits}); }
 function percent(value) { return `%${number(Number(value || 0) * 100, 1)}`; }
@@ -136,7 +146,39 @@ function renderDataState() {
   $('#googleAction').textContent = connected ? 'Şimdi senkronize et' :
     state.googleStatus?.configured ? 'Google’a bağla' : 'API’yi kur';
 }
-function renderAll() { renderOverview(); renderOpportunities(); renderQueries(); renderPages(); renderDataState(); }
+function nextStepFor(workflow) {
+  if (workflow.status === 'AWAITING_APPROVAL') return 'Hazırlanan değişikliği incele ve karar ver';
+  if (workflow.status === 'APPROVED') return 'Değişikliği uygula ve ölçüm dönemini başlat';
+  if (workflow.status === 'MONITORING') return '14/28 günlük performans değişimini izle';
+  if (workflow.status === 'COMPLETED') return 'Sonucu bilgi tabanına ekle';
+  if (workflow.status === 'REJECTED') return 'Yeni veri gelene kadar kapalı tut';
+  return 'Yeni veri eşiğini otomatik olarak bekle';
+}
+function workflowButtons(workflow) {
+  if (workflow.status === 'AWAITING_APPROVAL') return `<button class="reject-button" data-workflow-action="reject" data-workflow-id="${workflow.id}">Reddet</button><button class="outline-button" data-workflow-action="approve" data-workflow-id="${workflow.id}">Onayla</button>`;
+  if (workflow.status === 'APPROVED') return `<button class="outline-button" data-workflow-action="start_monitoring" data-workflow-id="${workflow.id}">Uygulandı, izlemeyi başlat</button>`;
+  if (workflow.status === 'MONITORING') return `<button class="outline-button" data-workflow-action="complete" data-workflow-id="${workflow.id}">Sonuçlandı</button>`;
+  return '';
+}
+function renderWorkflows() {
+  const counts = state.workflows.reduce((result, workflow) => {
+    result[workflow.status] = (result[workflow.status] || 0) + 1; return result;
+  }, {});
+  const waiting = counts.AWAITING_APPROVAL || 0;
+  $('#approvalCount').textContent = waiting;
+  $('#automatedCount').textContent = state.workflows.length;
+  $('#waitingCount').textContent = waiting;
+  $('#approvedCount').textContent = counts.APPROVED || 0;
+  $('#monitoringCount').textContent = counts.MONITORING || 0;
+  $('#workflowBoard').innerHTML = state.workflows.length ? state.workflows.map((workflow) => {
+    const meta = workflowMeta[workflow.status] || workflowMeta.DISCOVERED;
+    return `<article class="workflow-card"><span class="priority-rail ${workflow.priority.level}"></span><div class="workflow-copy"><div class="workflow-meta"><span class="priority-label">${workflow.priority.level} · P${workflow.priority.score}</span><span class="workflow-status ${meta.className}">${meta.label}</span></div><h3>${escapeHtml(workflow.title)}</h3><p>${escapeHtml(workflow.brief.action)}</p></div><div class="workflow-score"><strong>${workflow.priority.score}</strong><small>öncelik puanı</small></div><div class="workflow-next"><small>Sonraki adım</small><strong>${escapeHtml(nextStepFor(workflow))}</strong><div class="workflow-actions">${workflowButtons(workflow)}</div></div></article>`;
+  }).join('') : '<article class="panel workflow-empty">Bu proje için henüz otomatik görev oluşmadı. Önce Search Console verisini bağla.</article>';
+  $$('[data-workflow-action]').forEach((button) => button.addEventListener('click', () =>
+    runWorkflowAction(button.dataset.workflowId, button.dataset.workflowAction)));
+}
+function renderAll() { renderOverview(); renderOpportunities(); renderQueries();
+  renderPages(); renderDataState(); renderWorkflows(); }
 
 function initials(name) {
   const words = String(name || '').trim().split(/\s+/u).filter(Boolean);
@@ -181,7 +223,27 @@ async function loadReport() {
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'Veri alınamadı.');
   Object.assign(state, payload);
+  await loadWorkflows();
   renderAll();
+}
+async function loadWorkflows() {
+  const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/workflows`);
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || 'İş akışları alınamadı.');
+  state.workflows = payload.workflows || [];
+}
+async function runWorkflowAction(id, action) {
+  try {
+    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/workflows/${encodeURIComponent(id)}/action`,
+        {method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({action})});
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    const index = state.workflows.findIndex((item) => item.id === id);
+    if (index >= 0) state.workflows[index] = payload.workflow;
+    renderWorkflows();
+    showToast(action === 'approve' ? 'Görev onaylandı ve uygulama kuyruğuna alındı.' :
+      action === 'reject' ? 'Görev reddedildi.' : 'Görev durumu güncellendi.');
+  } catch (exception) { showToast(exception.message); }
 }
 async function loadProjects() {
   const [projectsResponse, googleResponse] = await Promise.all([
@@ -227,7 +289,7 @@ async function importReport() {
     const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({directory: $('#directoryInput').value})});
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || 'İçe aktarma başarısız.');
-    Object.assign(state, payload); renderAll(); $('#importModal').hidden = true; showToast('Search Console verisi başarıyla analiz edildi.');
+    Object.assign(state, payload); await loadWorkflows(); renderAll(); $('#importModal').hidden = true; showToast('Search Console verisi analiz edildi ve görevler güncellendi.');
   } catch (exception) { error.textContent = exception.message; }
   finally { button.disabled = false; button.innerHTML = 'Analizi başlat <span>→</span>'; }
 }
@@ -256,7 +318,7 @@ async function googleAction() {
   try {
     const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/google/sync`, {method: 'POST'});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
-    Object.assign(state, payload); renderAll(); showToast('Search Console verisi güncellendi.');
+    Object.assign(state, payload); await loadWorkflows(); renderAll(); showToast('Search Console verisi ve görevler güncellendi.');
   } catch (exception) { showToast(exception.message); }
   finally { button.disabled = false; renderDataState(); }
 }
@@ -276,6 +338,7 @@ $('#importButton').addEventListener('click', () => { $('#importModal').hidden = 
 $('#dataImportButton').addEventListener('click', () => $('#importButton').click());
 $('#projectMenuButton').addEventListener('click', () => { renderProjects(); $('#projectModal').hidden = false; });
 $('#createProjectButton').addEventListener('click', createNewProject);
+$('#refreshWorkflows').addEventListener('click', async () => { await loadWorkflows(); renderWorkflows(); showToast('Öncelikler güncellendi.'); });
 $$('[data-close-project]').forEach((button) => button.addEventListener('click', () => $('#projectModal').hidden = true));
 $('#googleAction').addEventListener('click', googleAction);
 $('#saveGoogleConfig').addEventListener('click', saveGoogleConfig);
