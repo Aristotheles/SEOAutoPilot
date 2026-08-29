@@ -1,26 +1,10 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import {createRequire} from 'node:module';
+import fs from 'node:fs';
 
 const require = createRequire(import.meta.url);
-const {parseCsv} = require('../src/csv');
-const {analyzeExport} = require('../src/engine');
-
-const FILES = Object.freeze({
-  chart: 'Grafik.csv',
-  queries: 'Sorgular.csv',
-  pages: 'Sayfa sayısı.csv',
-  devices: 'Cihazlar.csv',
-  countries: 'Ülkeler.csv',
-  filters: 'Filtreler.csv',
-  searchAppearance: 'Arama görünümü.csv',
-});
-
-function readTable(directory, fileName) {
-  const filePath = path.join(directory, fileName);
-  return fs.existsSync(filePath) ? parseCsv(fs.readFileSync(filePath, 'utf8')) : [];
-}
+const {loadExport} = require('../src/importer');
 
 const args = process.argv.slice(2);
 const directory = args[0] ? path.resolve(args[0]) : null;
@@ -35,9 +19,7 @@ if (!directory || !fs.existsSync(directory) ||
   process.exit(1);
 }
 
-const tables = Object.fromEntries(Object.entries(FILES).map(
-    ([key, fileName]) => [key, readTable(directory, fileName)]));
-const report = analyzeExport(tables);
+const {report} = loadExport(directory);
 const json = `${JSON.stringify(report, null, 2)}\n`;
 
 if (outputPath) {

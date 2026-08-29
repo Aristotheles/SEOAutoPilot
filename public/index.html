@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10182d">
+  <title>SEOAutoPilot — SEO Komuta Merkezi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="SEOAutoPilot ana sayfa">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span><strong>SEO</strong>AutoPilot</span>
+      </a>
+
+      <nav class="nav" aria-label="Ana menü">
+        <p class="nav-label">Çalışma alanı</p>
+        <button class="nav-item active" data-view="overview">
+          <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>
+          Genel bakış
+        </button>
+        <button class="nav-item" data-view="opportunities">
+          <svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg>
+          Fırsatlar <span class="nav-count" id="opportunityCount">4</span>
+        </button>
+        <button class="nav-item" data-view="queries">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          Sorgular
+        </button>
+        <button class="nav-item" data-view="pages">
+          <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>
+          Sayfalar
+        </button>
+        <p class="nav-label nav-label-second">Sistem</p>
+        <button class="nav-item" data-view="data">
+          <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+          Veri kaynakları
+        </button>
+      </nav>
+
+      <div class="sidebar-card">
+        <div class="pilot-orbit"><span></span></div>
+        <div><small>İnsan onaylı mod</small><strong>Otomatik yayın kapalı</strong></div>
+      </div>
+      <div class="sidebar-footer">
+        <span class="avatar">LD</span>
+        <div><strong>LingoDecoder</strong><small>Aktif proje</small></div>
+        <button aria-label="Proje seçenekleri">•••</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-button" id="menuButton" aria-label="Menüyü aç">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="breadcrumb"><span>LingoDecoder</span><b>/</b><strong id="viewCrumb">Genel bakış</strong></div>
+        <div class="topbar-actions">
+          <span class="status-pill" id="dataStatus"><i></i> Demo veri</span>
+          <button class="icon-button" aria-label="Bildirimler">
+            <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+            <span class="notification-dot"></span>
+          </button>
+          <button class="primary-button" id="importButton">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+            Veri içe aktar
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view active" id="view-overview">
+          <div class="page-heading">
+            <div><p class="eyebrow">SEO KOMUTA MERKEZİ</p><h1>Günaydın, Şenol <span>👋</span></h1><p>Bugün büyümeyi hızlandırabilecek <strong id="headingOpportunityCount">4 SEO sinyali</strong> var.</p></div>
+            <div class="date-range"><svg viewBox="0 0 24 24"><path d="M6 2v4M18 2v4M3 9h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/></svg><span>Son veri aralığı</span><strong id="activeDays">6 aktif gün</strong></div>
+          </div>
+
+          <div class="score-strip">
+            <article class="score-card hero-score">
+              <div class="score-ring" id="scoreRing"><div><strong id="visibilityScore">24</strong><span>/100</span></div></div>
+              <div><span class="card-kicker">Görünürlük skoru</span><h2>Temel atıldı</h2><p>Yeni site için normal. Öncelik: mevcut sayfaları güçlendirmek.</p></div>
+            </article>
+            <article class="metric-card"><span class="metric-icon coral"><svg viewBox="0 0 24 24"><path d="m8 2 9 9-4 1 3 7-3 1-3-7-4 3 2-14Z"/></svg></span><div><span>Toplam tıklama</span><strong id="clicksMetric">3</strong><small class="trend neutral">Yeni veri</small></div></article>
+            <article class="metric-card"><span class="metric-icon purple"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></span><div><span>Gösterim</span><strong id="impressionsMetric">104</strong><small class="trend up">↑ İlk sinyaller geldi</small></div></article>
+            <article class="metric-card"><span class="metric-icon mint"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19V2"/></svg></span><div><span>Ortalama CTR</span><strong id="ctrMetric">%2,9</strong><small class="trend neutral">Erken dönem</small></div></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel performance-panel">
+              <div class="panel-header"><div><span class="card-kicker">ARAMA PERFORMANSI</span><h2>Organik ivme</h2></div><div class="legend"><span><i class="coral-dot"></i>Gösterim</span><span><i class="purple-dot"></i>Tıklama</span></div></div>
+              <div class="chart-wrap">
+                <div class="y-axis" id="chartYAxis"><span>30</span><span>20</span><span>10</span><span>0</span></div>
+                <svg class="line-chart" viewBox="0 0 720 230" preserveAspectRatio="none" aria-label="Arama performansı grafiği">
+                  <defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6f61" stop-opacity=".25"/><stop offset="1" stop-color="#ff6f61" stop-opacity="0"/></linearGradient></defs>
+                  <g class="grid-lines"><path d="M0 20H720M0 85H720M0 150H720M0 215H720"/></g>
+                  <path class="area-path" id="areaPath" d="M0 215 C100 210 125 150 220 162 S340 98 430 120 S550 48 720 62 L720 215 L0 215Z"/>
+                  <path class="impression-line" id="impressionPath" d="M0 215 C100 210 125 150 220 162 S340 98 430 120 S550 48 720 62"/>
+                  <path class="click-line" id="clickPath" d="M0 215 C150 215 180 202 280 206 S450 187 520 196 S650 180 720 184"/>
+                </svg>
+                <div class="x-axis" id="chartXAxis"><span>24 Ağu</span><span>25 Ağu</span><span>26 Ağu</span><span>27 Ağu</span><span>28 Ağu</span><span>29 Ağu</span></div>
+              </div>
+              <div class="chart-insight"><span>✦</span><p><strong>İlk yorum:</strong> Google sayfaları keşfetmeye başladı. Henüz trend kararı vermek için erken; veri toplamaya devam et.</p></div>
+            </article>
+
+            <article class="panel focus-panel">
+              <div class="panel-header"><div><span class="card-kicker">BUGÜNÜN ODAĞI</span><h2>En değerli hamle</h2></div><span class="priority-badge">Yüksek öncelik</span></div>
+              <div class="focus-icon">Aa</div>
+              <h3 id="focusTitle">Almanca artikeller sayfasını güçlendir</h3>
+              <p id="focusReason">30 sorgu gösterimi aynı arama niyetinde birleşiyor. Yeni içerik açmak yerine mevcut otoriteyi büyüt.</p>
+              <div class="focus-stats"><span><small>Gösterim</small><strong id="focusImpressions">30</strong></span><span><small>Konum</small><strong id="focusPosition">86,3</strong></span><span><small>Ürün uyumu</small><strong id="focusFit">4/5</strong></span></div>
+              <button class="dark-button" data-open-focus>Öneriyi incele <span>→</span></button>
+            </article>
+          </div>
+
+          <div class="bottom-grid">
+            <article class="panel opportunity-panel">
+              <div class="panel-header"><div><span class="card-kicker">AKSİYON KUYRUĞU</span><h2>SEO fırsatları</h2></div><button class="text-button" data-go="opportunities">Tümünü gör →</button></div>
+              <div id="opportunityPreview" class="opportunity-list"></div>
+            </article>
+            <article class="panel system-panel">
+              <div class="panel-header"><div><span class="card-kicker">SİSTEM DURUMU</span><h2>Autopilot kontrolleri</h2></div><span class="live-dot">CANLI</span></div>
+              <div class="system-row"><span class="system-check">✓</span><div><strong>CSV analiz motoru</strong><small>Veriler başarıyla işlendi</small></div><b>Hazır</b></div>
+              <div class="system-row"><span class="system-check">✓</span><div><strong>Fırsat kümeleri</strong><small>Arama niyeti eşleştiriliyor</small></div><b>Hazır</b></div>
+              <div class="system-row"><span class="system-lock">⌁</span><div><strong>İnsan onayı</strong><small>Yayın öncesi zorunlu kontrol</small></div><b>Aktif</b></div>
+              <div class="system-footer"><span>Son analiz</span><strong id="lastAnalysis">Bugün, 12:00</strong></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-opportunities">
+          <div class="page-heading compact"><div><p class="eyebrow">FIRSAT RADARI</p><h1>Aksiyon kuyruğu</h1><p>Veriye göre sıralanmış, insan onayı bekleyen SEO hamleleri.</p></div></div>
+          <div class="filter-row"><button class="filter active" data-filter="all">Tümü</button><button class="filter" data-filter="UPDATE_EXISTING">Güncelle</button><button class="filter" data-filter="HOLD">Bekle</button><button class="filter" data-filter="NEW_PAGE">Yeni sayfa</button></div>
+          <div id="opportunityBoard" class="opportunity-board"></div>
+        </section>
+
+        <section class="view" id="view-queries">
+          <div class="page-heading compact"><div><p class="eyebrow">ARAMA TALEBİ</p><h1>Sorgu kümeleri</h1><p>Tek tek kelimeler değil, ortak arama niyetleri üzerinden karar ver.</p></div></div>
+          <article class="panel table-panel"><div class="table-toolbar"><div class="search-box"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="querySearch" placeholder="Sorgu ara..."></div><span id="queryResultCount"></span></div><div class="table-scroll"><table><thead><tr><th>Sorgu</th><th>Küme</th><th>Gösterim</th><th>Konum</th><th>Durum</th></tr></thead><tbody id="queryTable"></tbody></table></div></article>
+        </section>
+
+        <section class="view" id="view-pages">
+          <div class="page-heading compact"><div><p class="eyebrow">İÇERİK ENVANTERİ</p><h1>Performans gösteren sayfalar</h1><p>Hangi sayfayı güçlendireceğini, hangisini bekleteceğini gör.</p></div></div>
+          <div id="pageCards" class="page-cards"></div>
+        </section>
+
+        <section class="view" id="view-data">
+          <div class="page-heading compact"><div><p class="eyebrow">VERİ KAYNAKLARI</p><h1>Search Console bağlantısı</h1><p>Şimdilik CSV dışa aktarımını kullan; API bağlantısı sonraki aşamada eklenecek.</p></div></div>
+          <div class="data-grid">
+            <article class="panel source-card connected"><div class="source-logo google">G</div><div><span class="card-kicker">AKTİF KAYNAK</span><h2>Google Search Console CSV</h2><p id="sourcePath">Demo veri kullanılıyor</p></div><span class="source-state">Bağlı</span></article>
+            <article class="panel data-instruction"><span class="step-number">01</span><div><h3>Search Console'dan dışa aktar</h3><p>Performans raporunda sağ üstteki “Dışa aktar” seçeneğinden CSV paketini indir.</p></div></article>
+            <article class="panel data-instruction"><span class="step-number">02</span><div><h3>Klasör yolunu göster</h3><p>İndirilen klasörün tam yolunu içe aktarma alanına yapıştır.</p></div></article>
+            <article class="panel data-instruction"><span class="step-number">03</span><div><h3>Önerileri onayla</h3><p>Motor veriyi yorumlar; hiçbir içerik onayın olmadan yayınlanmaz.</p></div></article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="importModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+      <button class="modal-close" data-close-modal aria-label="Kapat">×</button>
+      <div class="modal-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
+      <p class="eyebrow">SEARCH CONSOLE</p><h2 id="importTitle">Yeni veriyi içe aktar</h2><p>Google'dan indirdiğin performans klasörünün tam yolunu gir.</p>
+      <label for="directoryInput">CSV klasör yolu</label>
+      <input id="directoryInput" value="C:\Users\senol\Downloads\https___lingodecoder.de_-Performance-on-Search-2026-08-29" spellcheck="false">
+      <div class="modal-note"><span>i</span> Veriler yalnızca bu bilgisayarda işlenir ve GitHub'a eklenmez.</div>
+      <button class="primary-button modal-submit" id="importSubmit">Analizi başlat <span>→</span></button>
+      <p class="form-error" id="importError"></p>
+    </section>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="detail-drawer" id="detailDrawer" aria-hidden="true"><button class="drawer-close" id="drawerClose">×</button><div id="drawerContent"></div></aside>
+  <div class="toast" id="toast"><span>✓</span><p></p></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

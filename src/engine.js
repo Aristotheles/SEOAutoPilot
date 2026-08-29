@@ -165,6 +165,8 @@ function analyzeExport(tables) {
   const chart = metricRows(tables.chart);
   const queries = metricRows(tables.queries);
   const pages = metricRows(tables.pages);
+  const devices = metricRows(tables.devices);
+  const countries = metricRows(tables.countries);
   const activeDays = chart.filter((row) => row.impressions > 0).length;
   const grouped = new Map(CLUSTERS.map((cluster) => [cluster.id, []]));
   const unclusteredQueries = [];
@@ -201,6 +203,17 @@ function analyzeExport(tables) {
       activeDays,
       displayedQueryImpressions: summarize(queries).impressions,
       pageImpressions: summarize(pages).impressions,
+    },
+    details: {
+      series: chart.map(({key, ...metrics}) => ({date: key, ...metrics})),
+      queries: queries.map(({key, ...metrics}) => {
+        const cluster = clusterForQuery(key);
+        return {query: key, clusterId: cluster?.id || null,
+          clusterLabel: cluster?.label || 'Kümelenmemiş', ...metrics};
+      }),
+      pages: pages.map(({key, ...metrics}) => ({url: key, ...metrics})),
+      devices: devices.map(({key, ...metrics}) => ({device: key, ...metrics})),
+      countries: countries.map(({key, ...metrics}) => ({country: key, ...metrics})),
     },
     opportunities,
     unclusteredQueries,

@@ -1,12 +1,13 @@
 {
   "name": "seo-autopilot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Human-approved Search Console opportunity engine for LingoDecoder.",
   "type": "commonjs",
   "scripts": {
     "test": "node --test test/*.test.js",
-    "analyze": "node bin/analyze-export.mjs"
+    "analyze": "node bin/analyze-export.mjs",
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=22"

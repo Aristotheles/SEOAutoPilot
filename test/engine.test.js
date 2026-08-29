@@ -52,3 +52,19 @@ test('holds a promising position when the sample is too small', () => {
   assert.equal(difficulty.action, ACTION.hold);
   assert.equal(difficulty.confidence, 'very_low');
 });
+
+test('preserves exact query and chart rows for the dashboard', () => {
+  const report = analyzeExport({
+    chart: [['Tarih', 'Tıklamalar', 'Gösterimler', 'TO', 'Konum'],
+      ['29.08.2026', '2', '20', '10%', '12']],
+    queries: [['Sorgu', 'Tıklamalar', 'Gösterimler', 'TO', 'Konum'],
+      ['almanca artikeller', '2', '20', '10%', '12']],
+    pages: [], devices: [], countries: [],
+  });
+  assert.deepEqual(report.details.series[0], {
+    date: '29.08.2026', clicks: 2, impressions: 20, ctr: .1, position: 12,
+  });
+  assert.equal(report.details.queries[0].query, 'almanca artikeller');
+  assert.equal(report.details.queries[0].clusterId, 'artikel_tr');
+  assert.equal(report.details.queries[0].impressions, 20);
+});
