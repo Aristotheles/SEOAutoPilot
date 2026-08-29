@@ -101,8 +101,8 @@ function confidenceFor(impressions, activeDays) {
   return CONFIDENCE[index];
 }
 
-function clusterForQuery(query) {
-  return CLUSTERS.find((cluster) =>
+function clusterForQuery(query, clusters = CLUSTERS) {
+  return clusters.find((cluster) =>
     cluster.patterns.some((pattern) => pattern.test(query))) || null;
 }
 
@@ -161,23 +161,48 @@ function recommend({cluster, page, queryMetrics, activeDays}) {
   };
 }
 
-function analyzeExport(tables) {
+function genericPageOpportunities(pages, activeDays) {
+  return [...pages].sort((left, right) => right.impressions - left.impressions)
+      .slice(0, 12).map((page, index) => {
+        let pathname = page.key;
+        try { pathname = new URL(page.key).pathname; } catch (_) { /* keep original */ }
+        const segment = pathname.split('/').filter(Boolean).pop() || 'Ana sayfa';
+        const label = segment.replace(/[-_]+/gu, ' ').replace(/\b\p{L}/gu,
+            (letter) => letter.toLocaleUpperCase('tr'));
+        let recommendation;
+        if (page.impressions < 10) recommendation = {action: ACTION.hold,
+          reason: 'Karar vermek için en az 10 gösterim bekleniyor.'};
+        else if (page.position > 20) recommendation = {action: ACTION.updateExisting,
+          reason: 'Sayfa gösterim alıyor ancak ilk iki sonuç sayfasının dışında kalıyor.'};
+        else if (page.ctr < .02) recommendation = {action: ACTION.ctrTest,
+          reason: 'Sayfa görünür durumda; başlık ve açıklama testi tıklamayı artırabilir.'};
+        else recommendation = {action: ACTION.hold,
+          reason: 'Mevcut performansı değiştirmek için yeterli olumsuz sinyal yok.'};
+        return {clusterId: `page_${index}`, label, locale: 'und', productFit: 3,
+          targetPath: pathname, queryMetrics: {...page},
+          pageMetrics: {...page, url: page.key, key: undefined}, matchedQueries: [],
+          confidence: confidenceFor(page.impressions, activeDays), ...recommendation};
+      });
+}
+
+function analyzeExport(tables, options = {}) {
+  const clusters = options.clusters ?? CLUSTERS;
   const chart = metricRows(tables.chart);
   const queries = metricRows(tables.queries);
   const pages = metricRows(tables.pages);
   const devices = metricRows(tables.devices);
   const countries = metricRows(tables.countries);
   const activeDays = chart.filter((row) => row.impressions > 0).length;
-  const grouped = new Map(CLUSTERS.map((cluster) => [cluster.id, []]));
+  const grouped = new Map(clusters.map((cluster) => [cluster.id, []]));
   const unclusteredQueries = [];
 
   for (const query of queries) {
-    const cluster = clusterForQuery(query.key);
+    const cluster = clusterForQuery(query.key, clusters);
     if (cluster) grouped.get(cluster.id).push(query);
     else unclusteredQueries.push(query.key);
   }
 
-  const opportunities = CLUSTERS.map((cluster) => {
+  const clusteredOpportunities = clusters.map((cluster) => {
     const matched = grouped.get(cluster.id);
     const queryMetrics = summarize(matched);
     const page = pageForCluster(pages, cluster);
@@ -193,6 +218,8 @@ function analyzeExport(tables) {
       ...recommend({cluster, page, queryMetrics, activeDays}),
     };
   });
+  const opportunities = clusters.length ? clusteredOpportunities :
+    genericPageOpportunities(pages, activeDays);
 
   return {
     schemaVersion: 1,
@@ -207,7 +234,7 @@ function analyzeExport(tables) {
     details: {
       series: chart.map(({key, ...metrics}) => ({date: key, ...metrics})),
       queries: queries.map(({key, ...metrics}) => {
-        const cluster = clusterForQuery(key);
+        const cluster = clusterForQuery(key, clusters);
         return {query: key, clusterId: cluster?.id || null,
           clusterLabel: cluster?.label || 'Kümelenmemiş', ...metrics};
       }),

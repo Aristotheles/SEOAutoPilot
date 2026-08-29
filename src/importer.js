@@ -20,7 +20,7 @@ function readTable(directory, fileName) {
   return fs.existsSync(filePath) ? parseCsv(fs.readFileSync(filePath, 'utf8')) : [];
 }
 
-function loadExport(directory) {
+function loadExport(directory, options = {}) {
   const resolved = path.resolve(directory);
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
     const error = new Error('Search Console klasörü bulunamadı.');
@@ -34,7 +34,7 @@ function loadExport(directory) {
     error.code = 'INVALID_EXPORT';
     throw error;
   }
-  return {report: analyzeExport(tables), tables, directory: resolved};
+  return {report: analyzeExport(tables, options), tables, directory: resolved};
 }
 
 module.exports = {FILES, loadExport, readTable};

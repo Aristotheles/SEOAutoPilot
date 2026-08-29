@@ -68,3 +68,14 @@ test('preserves exact query and chart rows for the dashboard', () => {
   assert.equal(report.details.queries[0].clusterId, 'artikel_tr');
   assert.equal(report.details.queries[0].impressions, 20);
 });
+
+test('creates page-based opportunities for a generic project', () => {
+  const report = analyzeExport({chart: [], queries: [],
+    pages: [['Sayfa', 'Tıklamalar', 'Gösterimler', 'TO', 'Konum'],
+      ['https://example.com/growth-guide', '1', '50', '2%', '34']],
+    devices: [], countries: []}, {clusters: []});
+  assert.equal(report.opportunities.length, 1);
+  assert.equal(report.opportunities[0].label, 'Growth Guide');
+  assert.equal(report.opportunities[0].action, 'UPDATE_EXISTING');
+  assert.equal(report.opportunities[0].targetPath, '/growth-guide');
+});

@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/project.css">
 </head>
 <body>
   <div class="app-shell">
@@ -48,9 +49,11 @@
         <div><small>İnsan onaylı mod</small><strong>Otomatik yayın kapalı</strong></div>
       </div>
       <div class="sidebar-footer">
-        <span class="avatar">LD</span>
-        <div><strong>LingoDecoder</strong><small>Aktif proje</small></div>
-        <button aria-label="Proje seçenekleri">•••</button>
+        <button class="project-switcher" id="projectMenuButton">
+          <span class="avatar" id="projectInitials">LD</span>
+          <span class="project-switcher-copy"><strong id="currentProjectName">LingoDecoder</strong><small>Proje değiştir</small></span>
+          <span class="switch-chevron">↕</span>
+        </button>
       </div>
     </aside>
 
@@ -59,7 +62,7 @@
         <button class="menu-button" id="menuButton" aria-label="Menüyü aç">
           <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
-        <div class="breadcrumb"><span>LingoDecoder</span><b>/</b><strong id="viewCrumb">Genel bakış</strong></div>
+        <div class="breadcrumb"><span id="breadcrumbProject">LingoDecoder</span><b>/</b><strong id="viewCrumb">Genel bakış</strong></div>
         <div class="topbar-actions">
           <span class="status-pill" id="dataStatus"><i></i> Demo veri</span>
           <button class="icon-button" aria-label="Bildirimler">
@@ -151,7 +154,8 @@
         <section class="view" id="view-data">
           <div class="page-heading compact"><div><p class="eyebrow">VERİ KAYNAKLARI</p><h1>Search Console bağlantısı</h1><p>Şimdilik CSV dışa aktarımını kullan; API bağlantısı sonraki aşamada eklenecek.</p></div></div>
           <div class="data-grid">
-            <article class="panel source-card connected"><div class="source-logo google">G</div><div><span class="card-kicker">AKTİF KAYNAK</span><h2>Google Search Console CSV</h2><p id="sourcePath">Demo veri kullanılıyor</p></div><span class="source-state">Bağlı</span></article>
+            <article class="panel source-card" id="googleSourceCard"><div class="source-logo google">G</div><div><span class="card-kicker">ÖNERİLEN KAYNAK</span><h2>Google Search Console API</h2><p id="googleSourceText">Otomatik veri akışı için OAuth bağlantısını yapılandır.</p></div><button class="outline-button source-action" id="googleAction">API'yi kur</button></article>
+            <article class="panel source-card connected"><div class="source-logo csv">CSV</div><div><span class="card-kicker">YEDEK VERİ KAYNAĞI</span><h2>Search Console CSV</h2><p id="sourcePath">Demo veri kullanılıyor</p></div><button class="outline-button source-action" id="dataImportButton">CSV içe aktar</button></article>
             <article class="panel data-instruction"><span class="step-number">01</span><div><h3>Search Console'dan dışa aktar</h3><p>Performans raporunda sağ üstteki “Dışa aktar” seçeneğinden CSV paketini indir.</p></div></article>
             <article class="panel data-instruction"><span class="step-number">02</span><div><h3>Klasör yolunu göster</h3><p>İndirilen klasörün tam yolunu içe aktarma alanına yapıştır.</p></div></article>
             <article class="panel data-instruction"><span class="step-number">03</span><div><h3>Önerileri onayla</h3><p>Motor veriyi yorumlar; hiçbir içerik onayın olmadan yayınlanmaz.</p></div></article>
@@ -171,6 +175,40 @@
       <div class="modal-note"><span>i</span> Veriler yalnızca bu bilgisayarda işlenir ve GitHub'a eklenmez.</div>
       <button class="primary-button modal-submit" id="importSubmit">Analizi başlat <span>→</span></button>
       <p class="form-error" id="importError"></p>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="projectModal" hidden>
+    <section class="modal project-modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+      <button class="modal-close" data-close-project aria-label="Kapat">×</button>
+      <p class="eyebrow">PROJE MERKEZİ</p><h2 id="projectModalTitle">Projeler</h2>
+      <p>Her site kendi verisi, Search Console bağlantısı ve öneri kuyruğuyla çalışır.</p>
+      <div class="project-list" id="projectList"></div>
+      <div class="new-project-form">
+        <h3>Yeni proje ekle</h3>
+        <label for="projectNameInput">Proje adı</label><input id="projectNameInput" placeholder="Örn. Yeni SaaS Projem">
+        <label for="projectUrlInput">Web sitesi</label><input id="projectUrlInput" placeholder="https://example.com">
+        <button class="primary-button modal-submit" id="createProjectButton">Projeyi oluştur <span>→</span></button>
+        <p class="form-error" id="projectError"></p>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="googleModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="googleModalTitle">
+      <button class="modal-close" data-close-google aria-label="Kapat">×</button>
+      <div class="modal-icon google-modal-icon">G</div>
+      <p class="eyebrow">GOOGLE OAUTH 2.0</p><h2 id="googleModalTitle">Search Console API</h2>
+      <p id="googleModalCopy">Google Cloud'da oluşturduğun Web application bilgilerini gir.</p>
+      <div id="googleConfigFields">
+        <label for="googleClientId">OAuth istemci kimliği</label><input id="googleClientId" placeholder="...apps.googleusercontent.com" autocomplete="off">
+        <label for="googleClientSecret">OAuth gizli anahtarı</label><input id="googleClientSecret" type="password" placeholder="GOCSPX-..." autocomplete="off">
+        <div class="redirect-box"><small>Yetkili yönlendirme adresi</small><code>http://127.0.0.1:4173/oauth/google/callback</code></div>
+        <div class="modal-note"><span>i</span> Anahtarlar yalnızca bu bilgisayarda, Git tarafından yok sayılan veri klasöründe saklanır.</div>
+        <button class="primary-button modal-submit" id="saveGoogleConfig">Kaydet ve bağlantıya geç <span>→</span></button>
+      </div>
+      <button class="primary-button modal-submit google-connect-button" id="connectGoogle" hidden>Google hesabını bağla <span>→</span></button>
+      <p class="form-error" id="googleError"></p>
     </section>
   </div>
 

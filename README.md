@@ -23,6 +23,32 @@ Arayüzde:
 - öneri gerekçesi, güven seviyesi ve insan onay kontrol listesi,
 - masaüstü ve mobil uyumlu görünüm bulunur.
 
+## Çok projeli kullanım
+
+Sol alttaki proje seçiciden istediğin kadar site ekleyebilirsin. Her projenin:
+
+- Search Console mülkü,
+- CSV klasörü,
+- API bağlantısı ve yenileme belirteci,
+- son senkronize raporu ayrı saklanır.
+
+Yerel proje verileri `data/*.json` içinde tutulur ve GitHub'a gönderilmez.
+
+## Search Console API
+
+**Veri kaynakları → API'yi kur** ekranı OAuth bilgilerini ve gerekli geri dönüş
+adresini gösterir. Google Cloud Console'da Search Console API'yi etkinleştirip
+**Web application** türünde bir OAuth istemcisi oluşturmalısın. Uygulama yalnızca
+`https://www.googleapis.com/auth/webmasters.readonly` salt okunur kapsamını ister.
+
+Yerel geri dönüş adresi:
+
+```text
+http://127.0.0.1:4173/oauth/google/callback
+```
+
+İstemci gizli anahtarı kaynak koduna veya GitHub'a yazılmaz.
+
 Analiz motoru mevcut Search Console CSV dışa aktarımlarını okuyarak:
 
 - sorguları ürünle ilişkili kümelere ayırır,

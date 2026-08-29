@@ -1,6 +1,7 @@
 'use strict';
 
-const state = {report: null, mode: 'demo', directory: '', filter: 'all'};
+const state = {report: null, mode: 'demo', directory: '', filter: 'all',
+  projects: [], project: null, googleStatus: null};
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const format = new Intl.NumberFormat('tr-TR');
@@ -34,7 +35,14 @@ function chartPath(rows, key, width = 720, height = 215) {
 
 function renderChart() {
   const rows = state.report.details?.series || [];
-  if (!rows.length) return;
+  if (!rows.length) {
+    $('#impressionPath').setAttribute('d', 'M0 215 L720 215');
+    $('#clickPath').setAttribute('d', 'M0 215 L720 215');
+    $('#areaPath').setAttribute('d', 'M0 215 L720 215 Z');
+    $('#chartYAxis').innerHTML = '<span>0</span><span>0</span><span>0</span><span>0</span>';
+    $('#chartXAxis').innerHTML = '<span>Veri bekleniyor</span>';
+    return;
+  }
   const impressionPath = chartPath(rows, 'impressions');
   const clickPath = chartPath(rows, 'clicks');
   $('#impressionPath').setAttribute('d', impressionPath);
@@ -71,6 +79,11 @@ function renderOverview() {
     $('#focusPosition').textContent = number(focus.pageMetrics?.position || focus.queryMetrics.position, 1);
     $('#focusFit').textContent = `${focus.productFit}/5`;
     $('[data-open-focus]').onclick = () => openDrawer(focus);
+  } else {
+    $('#focusTitle').textContent = 'İlk veriyi bağla';
+    $('#focusReason').textContent = 'Search Console API veya CSV bağlandığında en değerli SEO hamlesi burada görünecek.';
+    $('#focusImpressions').textContent = '0'; $('#focusPosition').textContent = '—';
+    $('#focusFit').textContent = '—'; $('[data-open-focus]').onclick = () => setView('data');
   }
   $('#opportunityPreview').innerHTML = report.opportunities.slice(0, 3).map((item) => {
     const meta = actionMeta[item.action] || actionMeta.HOLD;
@@ -111,12 +124,38 @@ function renderPages() {
 }
 
 function renderDataState() {
-  const live = state.mode === 'live';
+  const live = state.mode === 'live' || state.mode === 'api';
   $('#dataStatus').classList.toggle('live', live);
-  $('#dataStatus').innerHTML = `<i></i> ${live ? 'Gerçek veri' : 'Demo veri'}`;
-  $('#sourcePath').textContent = live ? state.directory : 'Demo veri kullanılıyor — gerçek CSV klasörünü bağlayabilirsin.';
+  $('#dataStatus').innerHTML = `<i></i> ${state.mode === 'api' ? 'API senkronize' : live ? 'Gerçek veri' : 'Demo veri'}`;
+  $('#sourcePath').textContent = state.mode === 'live' ? state.directory :
+    state.mode === 'api' ? 'API verisi kullanılıyor.' : 'Bu proje için henüz gerçek veri yok.';
+  const connected = state.project?.connection === 'connected';
+  $('#googleSourceText').textContent = connected ? 'Search Console hesabı bağlı; veriler otomatik alınabilir.' :
+    state.googleStatus?.configured ? 'OAuth hazır; bu projeyi Google hesabına bağla.' :
+      'Otomatik veri akışı için OAuth bağlantısını yapılandır.';
+  $('#googleAction').textContent = connected ? 'Şimdi senkronize et' :
+    state.googleStatus?.configured ? 'Google’a bağla' : 'API’yi kur';
 }
 function renderAll() { renderOverview(); renderOpportunities(); renderQueries(); renderPages(); renderDataState(); }
+
+function initials(name) {
+  const words = String(name || '').trim().split(/\s+/u).filter(Boolean);
+  if (words.length === 1) {
+    const capitals = words[0].match(/[A-ZÇĞİÖŞÜ]/gu) || [];
+    return (capitals.length > 1 ? capitals.slice(0, 2).join('') :
+      `${words[0][0] || ''}${words[0][1] || ''}`).toLocaleUpperCase('tr');
+  }
+  return words.slice(0, 2).map((word) => word[0]).join('').toLocaleUpperCase('tr');
+}
+function renderProjects() {
+  if (!state.project) return;
+  $('#currentProjectName').textContent = state.project.name;
+  $('#breadcrumbProject').textContent = state.project.name;
+  $('#projectInitials').textContent = initials(state.project.name);
+  $('#projectList').innerHTML = state.projects.map((project) =>
+    `<button class="project-list-item ${project.id === state.project.id ? 'active' : ''}" data-project-id="${escapeHtml(project.id)}"><span class="avatar">${escapeHtml(initials(project.name))}</span><span class="project-list-copy"><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.siteUrl)}</small></span><span class="connection-mini ${project.connection}">${project.connection === 'connected' ? 'API bağlı' : project.hasReport ? 'CSV' : 'Yeni'}</span></button>`).join('');
+  $$('[data-project-id]').forEach((button) => button.addEventListener('click', () => selectProject(button.dataset.projectId)));
+}
 
 function setView(name) {
   $$('.view').forEach((view) => view.classList.toggle('active', view.id === `view-${name}`));
@@ -138,22 +177,94 @@ function closeDrawer() { $('#detailDrawer').classList.remove('open'); $('#detail
 function showToast(message) { $('#toast p').textContent = message; $('#toast').classList.add('show'); setTimeout(() => $('#toast').classList.remove('show'), 3200); }
 
 async function loadReport() {
-  const response = await fetch('/api/report');
+  const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/report`);
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'Veri alınamadı.');
   Object.assign(state, payload);
   renderAll();
 }
+async function loadProjects() {
+  const [projectsResponse, googleResponse] = await Promise.all([
+    fetch('/api/projects'), fetch('/api/google/status'),
+  ]);
+  const projectsPayload = await projectsResponse.json();
+  state.projects = projectsPayload.projects || [];
+  state.googleStatus = await googleResponse.json();
+  const requested = new URLSearchParams(location.search).get('project');
+  const saved = localStorage.getItem('seo-autopilot-project');
+  state.project = state.projects.find((item) => item.id === requested) ||
+    state.projects.find((item) => item.id === saved) || state.projects[0];
+  renderProjects();
+  await loadReport();
+  const oauth = new URLSearchParams(location.search).get('oauth');
+  if (oauth === 'success') showToast('Google Search Console bağlantısı tamamlandı.');
+  if (oauth === 'error') showToast('Google bağlantısı tamamlanamadı.');
+  if (oauth) history.replaceState({}, '', '/');
+}
+async function selectProject(id) {
+  const project = state.projects.find((item) => item.id === id);
+  if (!project) return;
+  state.project = project; localStorage.setItem('seo-autopilot-project', id);
+  $('#projectModal').hidden = true; renderProjects(); await loadReport();
+  showToast(`${project.name} projesine geçildi.`);
+}
+async function createNewProject() {
+  const button = $('#createProjectButton'); const error = $('#projectError');
+  error.textContent = ''; button.disabled = true;
+  try {
+    const response = await fetch('/api/projects', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: $('#projectNameInput').value, siteUrl: $('#projectUrlInput').value})});
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    state.projects.push(payload.project); $('#projectNameInput').value = ''; $('#projectUrlInput').value = '';
+    await selectProject(payload.project.id);
+  } catch (exception) { error.textContent = exception.message; }
+  finally { button.disabled = false; }
+}
 async function importReport() {
   const button = $('#importSubmit'); const error = $('#importError');
   button.disabled = true; button.textContent = 'Analiz ediliyor…'; error.textContent = '';
   try {
-    const response = await fetch('/api/import', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({directory: $('#directoryInput').value})});
+    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({directory: $('#directoryInput').value})});
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || 'İçe aktarma başarısız.');
     Object.assign(state, payload); renderAll(); $('#importModal').hidden = true; showToast('Search Console verisi başarıyla analiz edildi.');
   } catch (exception) { error.textContent = exception.message; }
   finally { button.disabled = false; button.innerHTML = 'Analizi başlat <span>→</span>'; }
+}
+
+function openGoogleModal() {
+  const configured = state.googleStatus?.configured;
+  $('#googleConfigFields').hidden = configured;
+  $('#connectGoogle').hidden = !configured;
+  $('#googleModalCopy').textContent = configured ? `${state.project.name} projesini salt okunur Search Console izniyle bağla.` :
+    'Google Cloud’da oluşturduğun Web application bilgilerini gir.';
+  $('#googleModal').hidden = false;
+}
+async function saveGoogleConfig() {
+  const error = $('#googleError'); error.textContent = '';
+  try {
+    const response = await fetch('/api/google/config', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({clientId: $('#googleClientId').value, clientSecret: $('#googleClientSecret').value})});
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    state.googleStatus = payload; $('#googleConfigFields').hidden = true; $('#connectGoogle').hidden = false;
+    $('#googleModalCopy').textContent = 'OAuth ayarları hazır. Şimdi Google hesabını bu projeye bağla.';
+  } catch (exception) { error.textContent = exception.message; }
+}
+async function googleAction() {
+  if (state.project.connection !== 'connected') { openGoogleModal(); return; }
+  const button = $('#googleAction'); button.disabled = true; button.textContent = 'Senkronize ediliyor…';
+  try {
+    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/google/sync`, {method: 'POST'});
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    Object.assign(state, payload); renderAll(); showToast('Search Console verisi güncellendi.');
+  } catch (exception) { showToast(exception.message); }
+  finally { button.disabled = false; renderDataState(); }
+}
+async function connectGoogle() {
+  const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/google/connect`);
+  const payload = await response.json();
+  if (!response.ok) { $('#googleError').textContent = payload.error; return; }
+  location.href = payload.url;
 }
 
 $$('.nav-item').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
@@ -162,10 +273,18 @@ $$('.filter').forEach((button) => button.addEventListener('click', () => { $$('.
 $('#querySearch').addEventListener('input', renderQueries);
 $('#menuButton').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
 $('#importButton').addEventListener('click', () => { $('#importModal').hidden = false; $('#directoryInput').focus(); });
+$('#dataImportButton').addEventListener('click', () => $('#importButton').click());
+$('#projectMenuButton').addEventListener('click', () => { renderProjects(); $('#projectModal').hidden = false; });
+$('#createProjectButton').addEventListener('click', createNewProject);
+$$('[data-close-project]').forEach((button) => button.addEventListener('click', () => $('#projectModal').hidden = true));
+$('#googleAction').addEventListener('click', googleAction);
+$('#saveGoogleConfig').addEventListener('click', saveGoogleConfig);
+$('#connectGoogle').addEventListener('click', connectGoogle);
+$$('[data-close-google]').forEach((button) => button.addEventListener('click', () => $('#googleModal').hidden = true));
 $$('[data-close-modal]').forEach((button) => button.addEventListener('click', () => $('#importModal').hidden = true));
 $('#importModal').addEventListener('click', (event) => { if (event.target === $('#importModal')) $('#importModal').hidden = true; });
 $('#importSubmit').addEventListener('click', importReport);
 $('#directoryInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') importReport(); });
 $('#drawerClose').addEventListener('click', closeDrawer); $('#drawerBackdrop').addEventListener('click', closeDrawer);
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; closeDrawer(); } });
-loadReport().catch((error) => { console.error(error); showToast('Veri yüklenemedi; sunucu bağlantısını kontrol et.'); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; $('#googleModal').hidden = true; closeDrawer(); } });
+loadProjects().catch((error) => { console.error(error); showToast('Veri yüklenemedi; sunucu bağlantısını kontrol et.'); });

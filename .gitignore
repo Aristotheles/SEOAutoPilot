@@ -5,3 +5,5 @@ node_modules/
 coverage/
 reports/*.json
 tmp/
+data/*.json
+data/*.tmp
