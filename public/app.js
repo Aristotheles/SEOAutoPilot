@@ -140,10 +140,10 @@ function renderDataState() {
   $('#sourcePath').textContent = state.mode === 'live' ? state.directory :
     state.mode === 'api' ? 'API verisi kullanılıyor.' : 'Bu proje için henüz gerçek veri yok.';
   const connected = state.project?.connection === 'connected';
-  $('#googleSourceText').textContent = connected ? 'Search Console hesabı bağlı; veriler otomatik alınabilir.' :
+  $('#googleSourceText').textContent = connected ? 'Search Console hesabı bağlı; uygulama açılışında otomatik yenilenir.' :
     state.googleStatus?.configured ? 'OAuth hazır; bu projeyi Google hesabına bağla.' :
       'Otomatik veri akışı için OAuth bağlantısını yapılandır.';
-  $('#googleAction').textContent = connected ? 'Şimdi senkronize et' :
+  $('#googleAction').textContent = connected ? 'Şimdi yenile' :
     state.googleStatus?.configured ? 'Google’a bağla' : 'API’yi kur';
 }
 function nextStepFor(workflow) {
@@ -216,7 +216,14 @@ function openDrawer(item) {
   $('#detailDrawer').setAttribute('aria-hidden', 'false');
 }
 function closeDrawer() { $('#detailDrawer').classList.remove('open'); $('#detailDrawer').setAttribute('aria-hidden', 'true'); setTimeout(() => { $('#drawerBackdrop').hidden = true; }, 280); }
-function showToast(message) { $('#toast p').textContent = message; $('#toast').classList.add('show'); setTimeout(() => $('#toast').classList.remove('show'), 3200); }
+function showToast(message, type = 'success') {
+  $('#toast p').textContent = message;
+  $('#toast span').textContent = type === 'error' ? '!' : '✓';
+  $('#toast').classList.toggle('error', type === 'error');
+  $('#toast').classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => $('#toast').classList.remove('show'), 4200);
+}
 
 async function loadReport() {
   const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/report`);
@@ -243,7 +250,7 @@ async function runWorkflowAction(id, action) {
     renderWorkflows();
     showToast(action === 'approve' ? 'Görev onaylandı ve uygulama kuyruğuna alındı.' :
       action === 'reject' ? 'Görev reddedildi.' : 'Görev durumu güncellendi.');
-  } catch (exception) { showToast(exception.message); }
+  } catch (exception) { showToast(exception.message, 'error'); }
 }
 async function loadProjects() {
   const [projectsResponse, googleResponse] = await Promise.all([
@@ -260,8 +267,9 @@ async function loadProjects() {
   await loadReport();
   const oauth = new URLSearchParams(location.search).get('oauth');
   if (oauth === 'success') showToast('Google Search Console bağlantısı tamamlandı.');
-  if (oauth === 'error') showToast('Google bağlantısı tamamlanamadı.');
+  if (oauth === 'error') showToast('Google bağlantısı tamamlanamadı.', 'error');
   if (oauth) history.replaceState({}, '', '/');
+  await autoSyncOnOpen();
 }
 async function selectProject(id) {
   const project = state.projects.find((item) => item.id === id);
@@ -269,6 +277,7 @@ async function selectProject(id) {
   state.project = project; localStorage.setItem('seo-autopilot-project', id);
   $('#projectModal').hidden = true; renderProjects(); await loadReport();
   showToast(`${project.name} projesine geçildi.`);
+  await autoSyncOnOpen();
 }
 async function createNewProject() {
   const button = $('#createProjectButton'); const error = $('#projectError');
@@ -312,15 +321,29 @@ async function saveGoogleConfig() {
     $('#googleModalCopy').textContent = 'OAuth ayarları hazır. Şimdi Google hesabını bu projeye bağla.';
   } catch (exception) { error.textContent = exception.message; }
 }
-async function googleAction() {
-  if (state.project.connection !== 'connected') { openGoogleModal(); return; }
+async function syncGoogle(automatic = false) {
   const button = $('#googleAction'); button.disabled = true; button.textContent = 'Senkronize ediliyor…';
   try {
     const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/google/sync`, {method: 'POST'});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
     Object.assign(state, payload); await loadWorkflows(); renderAll(); showToast('Search Console verisi ve görevler güncellendi.');
-  } catch (exception) { showToast(exception.message); }
+    sessionStorage.setItem(`seo-auto-synced-${state.project.id}`, '1');
+    return true;
+  } catch (exception) {
+    showToast(automatic ? `Otomatik senkronizasyon: ${exception.message}` : exception.message, 'error');
+    return false;
+  }
   finally { button.disabled = false; renderDataState(); }
+}
+async function autoSyncOnOpen() {
+  if (state.project?.connection !== 'connected') return;
+  const key = `seo-auto-synced-${state.project.id}`;
+  if (sessionStorage.getItem(key)) return;
+  await syncGoogle(true);
+}
+async function googleAction() {
+  if (state.project.connection !== 'connected') { openGoogleModal(); return; }
+  await syncGoogle(false);
 }
 async function connectGoogle() {
   const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/google/connect`);
@@ -350,4 +373,4 @@ $('#importSubmit').addEventListener('click', importReport);
 $('#directoryInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') importReport(); });
 $('#drawerClose').addEventListener('click', closeDrawer); $('#drawerBackdrop').addEventListener('click', closeDrawer);
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; $('#googleModal').hidden = true; closeDrawer(); } });
-loadProjects().catch((error) => { console.error(error); showToast('Veri yüklenemedi; sunucu bağlantısını kontrol et.'); });
+loadProjects().catch((error) => { console.error(error); showToast('Veri yüklenemedi; sunucu bağlantısını kontrol et.', 'error'); });

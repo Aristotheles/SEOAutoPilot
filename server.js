@@ -66,7 +66,7 @@ function projectIdFrom(pathname, suffix) {
 }
 async function routeApi(request, response, requestUrl) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.4.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.4.1'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -161,6 +161,13 @@ async function routeApi(request, response, requestUrl) {
         updateProject(project.id, {oauth: token.updatedOauth});
         project = getPrivateProject(project.id);
       }
+      const sites = await google.listSites(token.accessToken);
+      const selectedProperty = google.chooseProperty(project.siteUrl, sites,
+          project.searchConsoleProperty);
+      if (selectedProperty !== project.searchConsoleProperty) {
+        updateProject(project.id, {searchConsoleProperty: selectedProperty});
+        project = getPrivateProject(project.id);
+      }
       const end = new Date(); end.setUTCDate(end.getUTCDate() - 2);
       const start = new Date(end); start.setUTCDate(start.getUTCDate() - 27);
       const tables = await google.fetchPerformance(token.accessToken,
@@ -183,9 +190,13 @@ async function oauthCallback(response, requestUrl) {
     const pending = google.consumeState(requestUrl.searchParams.get('state'));
     const token = await google.exchangeCode(requestUrl.searchParams.get('code'), pending.redirectUri);
     const project = getPrivateProject(pending.projectId);
+    const sites = await google.listSites(token.access_token);
+    const selectedProperty = google.chooseProperty(project.siteUrl, sites,
+        project.searchConsoleProperty);
     updateProject(project.id, {oauth: {accessToken: token.access_token,
       refreshToken: token.refresh_token || project.oauth?.refreshToken,
-      expiresAt: Date.now() + token.expires_in * 1000, scope: token.scope}});
+      expiresAt: Date.now() + token.expires_in * 1000, scope: token.scope},
+    searchConsoleProperty: selectedProperty});
     response.writeHead(302, {Location: `/?oauth=success&project=${encodeURIComponent(project.id)}`});
   } catch (error) {
     response.writeHead(302, {Location: `/?oauth=error&message=${encodeURIComponent(error.message)}`});

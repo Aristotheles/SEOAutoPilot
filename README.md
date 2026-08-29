@@ -49,6 +49,11 @@ http://127.0.0.1:4173/oauth/google/callback
 
 İstemci gizli anahtarı kaynak koduna veya GitHub'a yazılmaz.
 
+Bağlı projeler uygulama açıldığında otomatik olarak senkronize edilir. Aynı
+tarayıcı oturumundaki sayfa yenilemeleri gereksiz API çağrısı üretmez. Uygulama
+Google hesabındaki yetkili Search Console mülklerini listeler ve proje alan
+adıyla eşleşen Domain veya URL-prefix mülkünü kendisi seçer.
+
 ## Kontrollü otomasyon
 
 Her analizden sonra fırsatlar otomatik olarak kalıcı iş akışlarına çevrilir:

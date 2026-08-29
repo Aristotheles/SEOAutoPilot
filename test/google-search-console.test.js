@@ -23,3 +23,18 @@ test('builds a read-only Search Console OAuth URL', () => {
   assert.equal(value.searchParams.get('access_type'), 'offline');
   assert.ok(value.searchParams.get('state'));
 });
+
+test('selects a permitted URL-prefix property instead of an inaccessible domain property', () => {
+  const selected = google.chooseProperty('https://lingodecoder.de', [
+    {siteUrl: 'sc-domain:lingodecoder.de', permissionLevel: 'siteUnverifiedUser'},
+    {siteUrl: 'https://lingodecoder.de/', permissionLevel: 'siteOwner'},
+    {siteUrl: 'https://other.example/', permissionLevel: 'siteOwner'},
+  ], 'sc-domain:lingodecoder.de');
+  assert.equal(selected, 'https://lingodecoder.de/');
+});
+
+test('fails closed when the account has no matching property', () => {
+  assert.throws(() => google.chooseProperty('https://example.com', [
+    {siteUrl: 'https://other.example/', permissionLevel: 'siteOwner'},
+  ]), /example\.com/u);
+});

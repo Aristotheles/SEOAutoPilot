@@ -90,6 +90,32 @@ async function listSites(accessToken) {
   const payload = await apiRequest(`${API_ROOT}/sites`, accessToken);
   return payload.siteEntry || [];
 }
+function hostnameForProperty(value) {
+  const source = String(value || '').trim();
+  if (source.startsWith('sc-domain:')) return source.slice('sc-domain:'.length)
+      .replace(/^www\./u, '').toLocaleLowerCase('en');
+  try { return new URL(source).hostname.replace(/^www\./u, '').toLocaleLowerCase('en'); }
+  catch (_) { return ''; }
+}
+function chooseProperty(projectSiteUrl, sites, currentProperty = '') {
+  const projectHostname = hostnameForProperty(projectSiteUrl);
+  const permitted = (sites || []).filter((site) => site.siteUrl &&
+    site.permissionLevel !== 'siteUnverifiedUser');
+  const exact = permitted.find((site) => site.siteUrl === currentProperty &&
+    hostnameForProperty(site.siteUrl) === projectHostname);
+  if (exact) return exact.siteUrl;
+  const matching = permitted.filter((site) =>
+    hostnameForProperty(site.siteUrl) === projectHostname);
+  const domainProperty = matching.find((site) => site.siteUrl === `sc-domain:${projectHostname}`);
+  if (domainProperty) return domainProperty.siteUrl;
+  const httpsProperty = matching.find((site) => site.siteUrl === `https://${projectHostname}/`) ||
+    matching.find((site) => site.siteUrl === `https://www.${projectHostname}/`);
+  if (httpsProperty) return httpsProperty.siteUrl;
+  if (matching.length) return matching[0].siteUrl;
+  const available = permitted.map((site) => site.siteUrl).slice(0, 5).join(', ');
+  throw new Error(`Google hesabında ${projectHostname} için yetkili Search Console mülkü bulunamadı.` +
+    (available ? ` Erişilebilir mülkler: ${available}` : ' Search Console erişimini kontrol et.'));
+}
 async function query(accessToken, siteUrl, startDate, endDate, dimension) {
   return apiRequest(`${API_ROOT}/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
       accessToken, {method: 'POST', body: JSON.stringify({startDate, endDate,
@@ -111,5 +137,6 @@ async function fetchPerformance(accessToken, siteUrl, startDate, endDate) {
     countries: asTable(['Ülke', 'Tıklamalar', 'Gösterimler', 'TO', 'Konum'], results[4].rows)};
 }
 
-module.exports = {accessTokenFor, configStatus, consumeState, createAuthorizationUrl,
-  exchangeCode, fetchPerformance, listSites, readConfig, saveConfig, SCOPE};
+module.exports = {accessTokenFor, chooseProperty, configStatus, consumeState,
+  createAuthorizationUrl, exchangeCode, fetchPerformance, hostnameForProperty,
+  listSites, readConfig, saveConfig, SCOPE};
