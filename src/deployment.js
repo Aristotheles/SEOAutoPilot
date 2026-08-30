@@ -221,8 +221,8 @@ function applyWorkflowChanges(workflow, root) {
   }
   const h1 = changes.get('h1');
   if (h1) {
-    html = replaceRequired(html, /<h1(?:\s[^>]*)?>[\s\S]*?<\/h1>/u,
-        `<h1>${htmlEscape(h1.proposed)}</h1>`, 'H1');
+    html = replaceRequired(html, /(<h1(?:\s[^>]*)?>)[\s\S]*?(<\/h1>)/u,
+        (_, opening, closing) => `${opening}${htmlEscape(h1.proposed)}${closing}`, 'H1');
     applied.push(h1.id);
   }
   if (!applied.length) throw new Error('Bu öneride otomatik uygulanabilir kesin bir değişiklik yok.');

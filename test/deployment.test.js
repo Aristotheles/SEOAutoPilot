@@ -132,6 +132,7 @@ test('resolves explicit .html URLs without adding another extension and accepts 
   ]}}, root);
   assert.equal(result.sourceFile, 'public/blog/german-b1-vs-b2.html');
   assert.deepEqual(result.applied, ['title', 'meta', 'h1']);
+  assert.match(fs.readFileSync(file, 'utf8'), /<h1 class="hero">New H1<\/h1>/u);
   assert.match(fs.readFileSync(file, 'utf8'), /content="New description"/u);
   assert.match(fs.readFileSync(file, 'utf8'), /<p>Keep body<\/p>/u);
 });
