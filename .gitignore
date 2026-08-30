@@ -7,3 +7,4 @@ reports/*.json
 tmp/
 data/*.json
 data/*.tmp
+data/worktrees/

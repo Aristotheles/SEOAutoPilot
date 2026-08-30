@@ -221,6 +221,18 @@ function finishExecution(workflow, output, now = new Date().toISOString()) {
         'system')};
 }
 
+function recoverPreview(workflow, output, now = new Date().toISOString()) {
+  if (workflow.status !== STATUS.failed ||
+      workflow.execution?.failedPhase !== STATUS.applying || !output?.url) {
+    throw new Error('Kurtarılabilir bir Firebase önizlemesi bulunmuyor.');
+  }
+  return {...workflow, status: STATUS.previewReady, updatedAt: now,
+    execution: {...workflow.execution, ...output, state: 'preview_ready', error: null,
+      previewAt: now, previewUrl: output.url, url: null, appliedAt: null},
+    events: addEvent(workflow, 'PREVIEW_RECOVERED',
+        'Başarılı Firebase önizlemesi doğrulandı ve göreve bağlandı', now, 'system')};
+}
+
 function beginPublish(workflow, now = new Date().toISOString()) {
   if (workflow.status !== STATUS.previewReady || !workflow.execution?.previewUrl) {
     throw new Error('Canlı yayın öncesinde doğrulanmış bir önizleme gerekli.');
@@ -250,4 +262,5 @@ function failExecution(workflow, error, now = new Date().toISOString()) {
 }
 
 module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, failExecution,
-  finishExecution, finishPublish, priorityFor, stepsFor, syncWorkflows, transition};
+  finishExecution, finishPublish, priorityFor, recoverPreview, stepsFor, syncWorkflows,
+  transition};

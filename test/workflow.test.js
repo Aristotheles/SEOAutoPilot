@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {STATUS, beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
-  priorityFor, syncWorkflows,
+  priorityFor, recoverPreview, syncWorkflows,
   transition} = require('../src/workflow');
 
 const opportunity = {clusterId: 'growth', label: 'Growth guide',
@@ -85,4 +85,16 @@ test('keeps failed preview work transparent and retryable', () => {
   assert.equal(failed.status, STATUS.failed);
   assert.equal(failed.execution.failedPhase, STATUS.applying);
   assert.equal(transition(failed, 'retry').status, STATUS.approved);
+});
+
+test('recovers a successfully deployed preview after URL parsing failed', () => {
+  const workflow = syncWorkflows('project-1', {opportunities: [opportunity]})[0];
+  const applying = beginExecution(transition(workflow, 'approve'), 'test-adapter');
+  const failed = failExecution(applying, 'Preview URL missing');
+  const recovered = recoverPreview(failed, {url: 'https://example--preview.web.app',
+    previewPageUrl: 'https://example--preview.web.app/growth-guide',
+    revision: 'abc123'});
+  assert.equal(recovered.status, STATUS.previewReady);
+  assert.equal(recovered.execution.previewPageUrl,
+      'https://example--preview.web.app/growth-guide');
 });
