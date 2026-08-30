@@ -178,7 +178,7 @@ function renderDataState() {
     (deployment.state === 'ready' ? '' : 'attention') : 'disconnected'}`;
   $('#deploymentAction').textContent = ready ? 'Bağlantıyı incele' : 'Bağlantıyı kur';
   $('#deploymentSourceText').textContent = ready ?
-    `${deployment.connection.framework} · ${deployment.connection.provider} · ${deployment.connection.branch} dalı · ${deployment.untrackedFiles || 0} izlenmeyen dosya` :
+    `${deployment.connection.framework} · ${deployment.connection.provider} · ${deployment.connection.branch} dalı · ${deployment.connection.sourceDirectory || 'web'} → ${deployment.connection.outputDirectory || 'build/web'} · ${deployment.untrackedFiles || 0} izlenmeyen dosya${deployment.publicationWarning ? ` · ${deployment.publicationWarning}` : ''}` :
     'Onaylanan değişikliklerin gerçekten uygulanması için yerel Git ve yayınlama bağlantısı gerekir.';
 }
 function nextStepFor(workflow) {
@@ -222,6 +222,9 @@ function workflowPreviewUrl(workflow) {
   catch (_) { return workflow.execution?.previewUrl || workflowTargetUrl(workflow); }
 }
 function workflowActionPanel(workflow, targetUrl) {
+  if (workflow.status === 'PREVIEW_READY' && state.deploymentStatus?.capabilities?.production === false) {
+    return `<div class="connection-warning"><div><strong>Önizleme hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflowPreviewUrl(workflow))}" target="_blank" rel="noopener">Hedef sayfa önizlemesini gör ↗</a><button class="modal-submit" disabled>Canlı yayın için uzak depo gerekli</button></div>`;
+  }
   if (workflow.status === 'PLANNED') return `<div class="approval-box"><strong>Öneri unutulmayacak şekilde editoryal kuyruğa kaydedildi.</strong><br>Search Console sinyali, mevcut içerikle çakışma ve hedef sorgular doğrulanmadan yayın taslağına dönüştürülmeyecek.</div>`;
   if (workflow.status === 'AWAITING_APPROVAL') return `<div class="approval-box detail-approval"><strong>Onaylamadan önce yukarıdaki değişikliklerin tamamını kontrol et.</strong><br>Onay yalnızca bu listelenen taslağı uygulama aşamasına geçirir; siteyi henüz değiştirmez.</div><div class="detail-actions"><button class="reject-button detail-reject" data-workflow-action="reject" data-workflow-id="${escapeHtml(workflow.id)}">Öneriyi reddet</button><button class="modal-submit detail-approve" data-workflow-action="approve" data-workflow-id="${escapeHtml(workflow.id)}">Bu değişiklikleri onayla <span>→</span></button></div>`;
   if (workflow.status === 'APPROVED' && !state.deploymentStatus?.connected) return `<div class="connection-warning"><strong>Site güncelleme bağlantısı henüz kurulmadı</strong><p>Öneri onaylandı fakat kaynak koduna bağlı bir yayınlama kanalı yok. Bu nedenle SEOAutoPilot sayfayı değiştirmiş gibi davranmayacak.</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Site bağlantısını kur →</button></div>`;

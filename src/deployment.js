@@ -40,6 +40,45 @@ function readFirebaseProject(root) {
   catch (_) { throw new Error('.firebaserc geçerli JSON değil.'); }
 }
 
+function safeDirectory(root, relative) {
+  if (typeof relative !== 'string' || !relative || path.isAbsolute(relative) ||
+      relative.includes('\\') || relative.split('/').some((part) => part === '..')) {
+    throw new Error('Kaynak veya yayın klasörü proje içinde olmalı.');
+  }
+  const resolved = path.resolve(root, relative);
+  const inside = path.relative(root, resolved);
+  if (inside.startsWith('..') || path.isAbsolute(inside)) throw new Error('Klasör proje dışında.');
+  return resolved;
+}
+
+function projectLayout(root) {
+  const packagePath = path.join(root, 'package.json');
+  const pkg = fs.existsSync(packagePath) ? JSON.parse(fs.readFileSync(packagePath, 'utf8')) : {};
+  const configPath = path.join(root, 'firebase.json');
+  const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+  if (Array.isArray(config.hosting)) throw new Error('Birden fazla Firebase Hosting hedefi için açık hedef seçimi gerekli.');
+  const hasFlutter = fs.existsSync(path.join(root, 'pubspec.yaml'));
+  const hasVite = Boolean(pkg.dependencies?.vite || pkg.devDependencies?.vite);
+  const sourceDirectory = hasVite ? 'public' : 'web';
+  const outputDirectory = config.hosting?.public || (hasVite ? 'dist' : hasFlutter ? 'build/web' : 'web');
+  safeDirectory(root, sourceDirectory); safeDirectory(root, outputDirectory);
+  if (hasVite && !pkg.scripts?.build) throw new Error('Vite projesinde npm build komutu tanımlanmalı.');
+  return {framework: hasFlutter ? 'flutter' : hasVite ? 'vite' : 'static',
+    sourceDirectory, outputDirectory,
+    releaseBuilder: hasFlutter && fs.existsSync(path.join(root, 'tool', 'build_web_release.mjs')) ?
+      'lingodecoder_flutter_release' : hasFlutter ? 'flutter_web_release' : hasVite ? 'vite_release' : 'static_site'};
+}
+
+function npmInvocation(args) {
+  if (process.platform !== 'win32') return {command: 'npm', args};
+  const candidates = [process.env.npm_execpath,
+    path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
+    process.env.APPDATA && path.join(process.env.APPDATA, 'npm/node_modules/npm/bin/npm-cli.js')];
+  const cli = candidates.find((file) => file && file.endsWith('npm-cli.js') && fs.existsSync(file));
+  if (!cli) throw new Error('npm Node giriş dosyası bulunamadı.');
+  return {command: process.execPath, args: [cli, ...args]};
+}
+
 function detectConnection(repositoryPath) {
   const requestedPath = String(repositoryPath || '').trim();
   const root = existingDirectory(requestedPath);
@@ -49,13 +88,13 @@ function detectConnection(repositoryPath) {
   const branch = run('git', ['branch', '--show-current'], gitRoot) || 'HEAD';
   if (branch === 'HEAD') throw new Error('Bağlantı için Git deposunda bir dal seçili olmalı.');
   const hasFirebase = fs.existsSync(path.join(gitRoot, 'firebase.json'));
-  const hasFlutter = fs.existsSync(path.join(gitRoot, 'pubspec.yaml'));
   const firebaseProject = hasFirebase ? readFirebaseProject(gitRoot) : '';
-  const releaseBuilder = fs.existsSync(path.join(gitRoot, 'tool', 'build_web_release.mjs')) ?
-    'lingodecoder_flutter_release' : hasFlutter ? 'flutter_web_release' : 'static_site';
+  const layout = projectLayout(gitRoot);
+  let hasOrigin = false;
+  try { hasOrigin = Boolean(run('git', ['remote', 'get-url', 'origin'], gitRoot)); } catch (_) { /* local-only repository */ }
   return {source: 'local_git', provider: hasFirebase ? 'firebase_hosting' : 'none',
-    requestedPath, repositoryPath: gitRoot, branch, framework: hasFlutter ? 'flutter' : 'static',
-    firebaseProject, releaseBuilder, connectedAt: new Date().toISOString()};
+    requestedPath, repositoryPath: gitRoot, branch, ...layout, hasOrigin,
+    firebaseProject, connectedAt: new Date().toISOString()};
 }
 
 function inspectConnection(connection) {
@@ -71,7 +110,9 @@ function inspectConnection(connection) {
       trackedChanges: trackedChanges ? trackedChanges.split(/\r?\n/u).length : 0,
       untrackedFiles: untracked,
       capabilities: {preview: detected.provider === 'firebase_hosting',
-        production: detected.provider === 'firebase_hosting', isolatedWorktree: true}};
+        production: detected.provider === 'firebase_hosting' && detected.hasOrigin, isolatedWorktree: true},
+      publicationWarning: detected.hasOrigin ? null :
+        'Yerel Git hazır; önizleme hazırlanabilir. Canlı yayın için origin uzak deposu bağlanmalı.'};
   } catch (error) { return {connected: false, state: 'error', error: error.message}; }
 }
 
@@ -102,14 +143,27 @@ function htmlEscape(value, attribute = false) {
 }
 
 function targetFile(root, targetPath) {
-  const relative = String(targetPath || '').replace(/^\/+|\/+$/gu, '');
-  if (!relative || relative.includes('..')) throw new Error('Güvenli bir hedef sayfa yolu bulunamadı.');
-  const candidates = [path.join(root, 'web', `${relative}.html`),
-    path.join(root, 'web', relative, 'index.html')];
+  const raw = String(targetPath || '').split(/[?#]/u)[0];
+  let relative;
+  try { relative = decodeURIComponent(raw).replace(/^\/+|\/+$/gu, ''); }
+  catch (_) { throw new Error('Hedef sayfa adresi geçersiz.'); }
+  if (!relative || relative.includes('\\') || relative.includes(':') ||
+      relative.split('/').some((part) => part === '..' || part === '.')) {
+    throw new Error('Güvenli bir hedef sayfa yolu bulunamadı.');
+  }
+  const sourceRoot = safeDirectory(root, projectLayout(root).sourceDirectory);
+  const candidates = /\.html?$/iu.test(relative) ? [path.join(sourceRoot, relative)] :
+    [path.join(sourceRoot, `${relative}.html`), path.join(sourceRoot, relative, 'index.html')];
   const selected = candidates.find((candidate) => fs.existsSync(candidate));
   if (!selected) throw new Error(`Hedef sayfanın kaynak dosyası bulunamadı: ${targetPath}`);
-  const webRoot = path.join(root, 'web');
-  if (!selected.startsWith(webRoot)) throw new Error('Hedef dosya web klasörünün dışında.');
+  const actualRoot = fs.realpathSync.native(sourceRoot);
+  const actual = fs.realpathSync.native(selected);
+  const within = path.relative(actualRoot, actual);
+  const rootWithin = path.relative(fs.realpathSync.native(root), actualRoot);
+  if (within.startsWith('..') || path.isAbsolute(within) || rootWithin.startsWith('..') ||
+      path.isAbsolute(rootWithin) || !fs.statSync(actual).isFile()) {
+    throw new Error('Hedef dosya kaynak klasörünün dışında.');
+  }
   return selected;
 }
 
@@ -133,7 +187,7 @@ function applyWorkflowChanges(workflow, root) {
   }
   const meta = changes.get('meta');
   if (meta) {
-    html = replaceRequired(html, /<meta name="description" content="[^"]*">/u,
+    html = replaceRequired(html, /<meta name="description" content="[^"]*"\s*\/?>/u,
         `<meta name="description" content="${htmlEscape(meta.proposed, true)}">`,
         'Meta açıklaması');
     applied.push(meta.id);
@@ -148,6 +202,36 @@ function applyWorkflowChanges(workflow, root) {
   fs.writeFileSync(filePath, html, 'utf8');
   return {sourceFile: path.relative(root, filePath).replaceAll('\\', '/'), applied,
     pending: [...changes.keys()].filter((id) => !applied.includes(id))};
+}
+
+function verifyBuiltPage(root, sourceFile) {
+  const layout = projectLayout(root);
+  const sourceRoot = safeDirectory(root, layout.sourceDirectory);
+  const outputRoot = safeDirectory(root, layout.outputDirectory);
+  const sourcePath = path.resolve(root, sourceFile);
+  const relative = path.relative(sourceRoot, sourcePath);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Kaynak sayfa yolu geçersiz.');
+  const built = path.join(outputRoot, relative);
+  if (!fs.existsSync(built) || fs.readFileSync(sourcePath, 'utf8') !== fs.readFileSync(built, 'utf8')) {
+    throw new Error('Derlenen hedef sayfa kaynakla eşleşmiyor; yayın durduruldu.');
+  }
+  return built;
+}
+
+async function buildProject(root) {
+  const layout = projectLayout(root);
+  if (layout.releaseBuilder === 'lingodecoder_flutter_release') {
+    await runAsync(process.execPath, ['tool/build_web_release.mjs'], root);
+  } else if (layout.releaseBuilder === 'vite_release') {
+    if (!fs.existsSync(path.join(root, 'package-lock.json'))) throw new Error('Güvenli Vite derlemesi için package-lock.json gerekli.');
+    // Install inside the isolated worktree, never copy the source site's node_modules or secrets.
+    const install = npmInvocation(['ci', '--no-audit', '--no-fund']);
+    await runAsync(install.command, install.args, root);
+    const build = npmInvocation(['run', 'build']);
+    await runAsync(build.command, build.args, root);
+  } else if (layout.releaseBuilder === 'flutter_web_release') {
+    throw new Error('Bu Flutter projesi için güvenli release build betiği tanımlanmamış.');
+  }
 }
 
 function findPreviewUrl(value) {
@@ -191,11 +275,8 @@ async function preparePreview(workflow, connection) {
     if (fs.existsSync(path.join(worktreePath, 'tool', 'verify_seo.mjs'))) {
       await runAsync('node', ['tool/verify_seo.mjs'], worktreePath, 120_000);
     }
-    if (connection.releaseBuilder === 'lingodecoder_flutter_release') {
-      await runAsync('node', ['tool/build_web_release.mjs'], worktreePath);
-    } else if (connection.releaseBuilder === 'flutter_web_release') {
-      throw new Error('Bu Flutter projesi için güvenli release build betiği tanımlanmamış.');
-    }
+    await buildProject(worktreePath);
+    verifyBuiltPage(worktreePath, patch.sourceFile);
     const channel = `seo-${workflow.id.slice(0, 12)}`;
     const previewCommand = firebaseInvocation(['hosting:channel:deploy', channel,
       '--expires', '7d', '--project', connection.firebaseProject, '--json',
@@ -232,6 +313,9 @@ async function preparePreview(workflow, connection) {
 }
 
 async function publishPreview(workflow, connection, siteUrl) {
+  if (!connection?.repositoryPath) throw new Error('Site güncelleme bağlantısı kurulmamış.');
+  const checked = inspectConnection(connection);
+  if (!checked.capabilities?.production) throw new Error(checked.publicationWarning || checked.error || 'Canlı yayın bağlantısı hazır değil.');
   const execution = workflow.execution || {};
   if (!execution.worktreePath || !execution.branch || !fs.existsSync(execution.worktreePath)) {
     throw new Error('Önizlemenin Git çalışma alanı bulunamadı.');
@@ -261,6 +345,6 @@ async function publishPreview(workflow, connection, siteUrl) {
     revision: execution.revision, pushedBranch: connection.branch};
 }
 
-module.exports = {applyWorkflowChanges, detectConnection, findPreviewUrl, firebaseInvocation,
-  inspectConnection,
+module.exports = {applyWorkflowChanges, buildProject, detectConnection, findPreviewUrl, firebaseInvocation,
+  inspectConnection, npmInvocation, projectLayout, targetFile, verifyBuiltPage,
   preparePreview, publicConnection, publishPreview};

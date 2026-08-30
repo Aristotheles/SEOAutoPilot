@@ -87,7 +87,23 @@ Otomatik yayın bu sürümün kapsamında değildir.
 
 Harici paket gerektirmez.
 
-## Test
+## Site kaynak bağlantıları
+
+Her projenin Git/Firebase bağlantısı bağımsızdır. Vite projelerinde statik SEO
+sayfaları `public/` içinden düzenlenir; izole Git çalışma kopyasında `npm ci`
+ve `npm run build` çalıştırılır. `package-lock.json` kaynak depoda bulunmalı
+ve temiz kurulumla uyumlu olmalıdır. Firebase Hosting'in yayın klasörü
+`firebase.json` dosyasından okunur (standart Vite projesinde `dist/`).
+Özel Vite `root`/`publicDir` yapılandırmaları bu adaptörün kapsamında değildir.
+
+Hedef URL'nin `.html` uzantısı korunur. Derlenen hedef sayfa kaynak dosyayla
+eşleşmeden önizleme yayınlanmaz. LingoDecoder'ın Flutter release betiği ayrı
+adaptör üzerinden çalışmaya devam eder.
+
+Yalnız yerel Git deposu olan projeler önizleme hazırlayabilir; canlı yayın
+için ayrıca `origin` uzak deposu ve kullanıcının yayın onayı gerekir.
+Bağlantıyı kaydetmek siteyi yayınlamaz. Gizli anahtarlar ve özel kullanıcı
+verileri Git'e veya yayın klasörüne eklenmemelidir.
 
 ## Bağlantı ve proje kaldırma
 
