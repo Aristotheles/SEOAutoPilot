@@ -168,10 +168,11 @@
         </section>
 
         <section class="view" id="view-data">
-          <div class="page-heading compact"><div><p class="eyebrow">VERİ KAYNAKLARI</p><h1>Search Console bağlantısı</h1><p>Şimdilik CSV dışa aktarımını kullan; API bağlantısı sonraki aşamada eklenecek.</p></div></div>
+          <div class="page-heading compact"><div><p class="eyebrow">VERİ KAYNAKLARI</p><h1>Veri ve uygulama bağlantıları</h1><p>Search Console otomatik veri getirir; site bağlantısı ise onaylanan değişiklikleri kontrollü biçimde yayınlar.</p></div></div>
           <div class="data-grid">
             <article class="panel source-card" id="googleSourceCard"><div class="source-logo google">G</div><div><span class="card-kicker">ÖNERİLEN KAYNAK</span><h2>Google Search Console API</h2><p id="googleSourceText">Otomatik veri akışı için OAuth bağlantısını yapılandır.</p><small class="last-sync-label" id="lastSyncLabel">Son güncelleme: Henüz yok</small></div><button class="outline-button source-action" id="googleAction">API'yi kur</button></article>
             <article class="panel source-card connected"><div class="source-logo csv">CSV</div><div><span class="card-kicker">YEDEK VERİ KAYNAĞI</span><h2>Search Console CSV</h2><p id="sourcePath">Demo veri kullanılıyor</p></div><button class="outline-button source-action" id="dataImportButton">CSV içe aktar</button></article>
+            <article class="panel source-card execution-source"><div class="source-logo deploy">↗</div><div><span class="card-kicker">UYGULAMA KANALI</span><h2>Site güncelleme bağlantısı</h2><p>Onaylanan değişikliklerin gerçekten uygulanması için GitHub, yerel Git veya CMS bağlantısı gerekir.</p></div><span class="source-state disconnected">Bağlı değil</span></article>
             <article class="panel data-instruction"><span class="step-number">01</span><div><h3>Search Console'dan dışa aktar</h3><p>Performans raporunda sağ üstteki “Dışa aktar” seçeneğinden CSV paketini indir.</p></div></article>
             <article class="panel data-instruction"><span class="step-number">02</span><div><h3>Klasör yolunu göster</h3><p>İndirilen klasörün tam yolunu içe aktarma alanına yapıştır.</p></div></article>
             <article class="panel data-instruction"><span class="step-number">03</span><div><h3>Önerileri onayla</h3><p>Motor veriyi yorumlar; hiçbir içerik onayın olmadan yayınlanmaz.</p></div></article>
@@ -225,6 +226,13 @@
       </div>
       <button class="primary-button modal-submit google-connect-button" id="connectGoogle" hidden>Google hesabını bağla <span>→</span></button>
       <p class="form-error" id="googleError"></p>
+    </section>
+  </div>
+
+  <div class="modal-backdrop workflow-modal-backdrop" id="workflowDetailModal" hidden>
+    <section class="modal workflow-detail-modal" role="dialog" aria-modal="true" aria-labelledby="workflowDetailTitle">
+      <button class="modal-close" data-close-workflow aria-label="Kapat">×</button>
+      <div id="workflowDetailContent"></div>
     </section>
   </div>
 

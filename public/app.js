@@ -20,9 +20,12 @@ const workflowMeta = {
   DISCOVERED: {label: 'Otomatik izleniyor', className: 'discovered'},
   AWAITING_APPROVAL: {label: 'Onay bekliyor', className: 'awaiting'},
   APPROVED: {label: 'Uygulamaya hazır', className: 'approved'},
+  APPLYING: {label: 'Sayfa güncelleniyor', className: 'applying'},
+  APPLIED: {label: 'Sayfa güncellendi', className: 'applied'},
   MONITORING: {label: 'Etki izleniyor', className: 'monitoring'},
   COMPLETED: {label: 'Tamamlandı', className: 'completed'},
   REJECTED: {label: 'Reddedildi', className: 'rejected'},
+  FAILED: {label: 'Güncelleme başarısız', className: 'failed'},
 };
 
 function number(value, digits = 0) { return Number(value || 0).toLocaleString('tr-TR', {maximumFractionDigits: digits}); }
@@ -158,18 +161,15 @@ function renderDataState() {
   $('#lastSyncLabel').textContent = `Son güncelleme: ${formatDateTime(lastSyncAt)}`;
 }
 function nextStepFor(workflow) {
-  if (workflow.status === 'AWAITING_APPROVAL') return 'Hazırlanan değişikliği incele ve karar ver';
-  if (workflow.status === 'APPROVED') return 'Değişikliği uygula ve ölçüm dönemini başlat';
+  if (workflow.status === 'AWAITING_APPROVAL') return 'Önerilen değişikliklerin tümünü incele';
+  if (workflow.status === 'APPROVED') return 'Site güncelleme bağlantısını kur';
+  if (workflow.status === 'APPLYING') return 'Sayfa güncellemesinin tamamlanmasını bekle';
+  if (workflow.status === 'APPLIED') return 'Yeni sayfayı doğrula ve izlemeyi başlat';
   if (workflow.status === 'MONITORING') return '14/28 günlük performans değişimini izle';
   if (workflow.status === 'COMPLETED') return 'Sonucu bilgi tabanına ekle';
+  if (workflow.status === 'FAILED') return 'Hata ayrıntısını incele ve yeniden dene';
   if (workflow.status === 'REJECTED') return 'Yeni veri gelene kadar kapalı tut';
   return 'Yeni veri eşiğini otomatik olarak bekle';
-}
-function workflowButtons(workflow) {
-  if (workflow.status === 'AWAITING_APPROVAL') return `<button class="reject-button" data-workflow-action="reject" data-workflow-id="${workflow.id}">Reddet</button><button class="outline-button" data-workflow-action="approve" data-workflow-id="${workflow.id}">Onayla</button>`;
-  if (workflow.status === 'APPROVED') return `<button class="outline-button" data-workflow-action="start_monitoring" data-workflow-id="${workflow.id}">Uygulandı, izlemeyi başlat</button>`;
-  if (workflow.status === 'MONITORING') return `<button class="outline-button" data-workflow-action="complete" data-workflow-id="${workflow.id}">Sonuçlandı</button>`;
-  return '';
 }
 function renderWorkflows() {
   const counts = state.workflows.reduce((result, workflow) => {
@@ -183,11 +183,44 @@ function renderWorkflows() {
   $('#monitoringCount').textContent = counts.MONITORING || 0;
   $('#workflowBoard').innerHTML = state.workflows.length ? state.workflows.map((workflow) => {
     const meta = workflowMeta[workflow.status] || workflowMeta.DISCOVERED;
-    return `<article class="workflow-card"><span class="priority-rail ${workflow.priority.level}"></span><div class="workflow-copy"><div class="workflow-meta"><span class="priority-label">${workflow.priority.level} · P${workflow.priority.score}</span><span class="workflow-status ${meta.className}">${meta.label}</span></div><h3>${escapeHtml(workflow.title)}</h3><p>${escapeHtml(workflow.brief.action)}</p></div><div class="workflow-score"><strong>${workflow.priority.score}</strong><small>öncelik puanı</small></div><div class="workflow-next"><small>Sonraki adım</small><strong>${escapeHtml(nextStepFor(workflow))}</strong><div class="workflow-actions">${workflowButtons(workflow)}</div></div></article>`;
+    return `<article class="workflow-card"><span class="priority-rail ${workflow.priority.level}"></span><div class="workflow-copy"><div class="workflow-meta"><span class="priority-label">${workflow.priority.level} · P${workflow.priority.score}</span><span class="workflow-status ${meta.className}">${meta.label}</span></div><h3>${escapeHtml(workflow.title)}</h3><p>${escapeHtml(workflow.brief.action)}</p></div><div class="workflow-score"><strong>${workflow.priority.score}</strong><small>öncelik puanı</small></div><div class="workflow-next"><small>Sonraki adım</small><strong>${escapeHtml(nextStepFor(workflow))}</strong><div class="workflow-actions"><button class="outline-button" data-workflow-detail="${escapeHtml(workflow.id)}">Ayrıntıları incele →</button></div></div></article>`;
   }).join('') : '<article class="panel workflow-empty">Bu proje için henüz otomatik görev oluşmadı. Önce Search Console verisini bağla.</article>';
-  $$('[data-workflow-action]').forEach((button) => button.addEventListener('click', () =>
-    runWorkflowAction(button.dataset.workflowId, button.dataset.workflowAction)));
+  $$('[data-workflow-detail]').forEach((button) => button.addEventListener('click', () =>
+    openWorkflowDetail(button.dataset.workflowDetail)));
 }
+function workflowTargetUrl(workflow) {
+  try { return new URL(workflow.targetPath, state.project.siteUrl).href; }
+  catch (_) { return workflow.targetPath; }
+}
+function workflowActionPanel(workflow, targetUrl) {
+  if (workflow.status === 'AWAITING_APPROVAL') return `<div class="approval-box detail-approval"><strong>Onaylamadan önce yukarıdaki değişikliklerin tamamını kontrol et.</strong><br>Onay yalnızca bu listelenen taslağı uygulama aşamasına geçirir; siteyi henüz değiştirmez.</div><div class="detail-actions"><button class="reject-button detail-reject" data-workflow-action="reject" data-workflow-id="${escapeHtml(workflow.id)}">Öneriyi reddet</button><button class="modal-submit detail-approve" data-workflow-action="approve" data-workflow-id="${escapeHtml(workflow.id)}">Bu değişiklikleri onayla <span>→</span></button></div>`;
+  if (workflow.status === 'APPROVED') return `<div class="connection-warning"><strong>Site güncelleme bağlantısı henüz kurulmadı</strong><p>Öneri onaylandı fakat LingoDecoder koduna veya içerik sistemine bağlı bir yayınlama kanalı yok. Bu nedenle SEOAutoPilot sayfayı değiştirmiş gibi davranmayacak.</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Site bağlantısını kur →</button></div>`;
+  if (workflow.status === 'APPLYING') return `<div class="apply-progress"><i></i><div><strong>Sayfa güncelleniyor…</strong><p>Onaylanan değişiklikler bağlı yayınlama kanalı üzerinden uygulanıyor. Bu pencereyi yeniden açarsan işlem bitene kadar aynı durum gösterilir.</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Güncelleme henüz bitmedi</button></div>`;
+  if (workflow.status === 'APPLIED') return `<div class="apply-progress done"><i>✓</i><div><strong>Sayfa güncellendi</strong><p>${escapeHtml(formatDateTime(workflow.execution?.appliedAt))} tarihinde yayın adresi doğrulandı.</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution?.url || targetUrl)}" target="_blank" rel="noopener">Yeni sayfayı gör ↗</a><button class="modal-submit" data-workflow-action="start_monitoring" data-workflow-id="${escapeHtml(workflow.id)}">İzlemeyi başlat <span>→</span></button></div>`;
+  if (workflow.status === 'MONITORING') return `<div class="apply-progress monitoring"><i>◷</i><div><strong>14/28 günlük ölçüm sürüyor</strong><p>Başlangıç: ${escapeHtml(formatDateTime(workflow.monitoringStartedAt))}. Sistem süre dolmadan sonucu tamamlandı olarak işaretlemez.</p></div></div>${workflow.execution?.url ? `<div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution.url)}" target="_blank" rel="noopener">Yayınlanan sayfayı gör ↗</a></div>` : ''}`;
+  if (workflow.status === 'COMPLETED') return `<div class="apply-progress done"><i>✓</i><div><strong>Ölçüm tamamlandı</strong><p>${workflow.result ? escapeHtml(JSON.stringify(workflow.result)) : 'Sonuç kaydı oluşturuldu; ayrıntılı karşılaştırma bilgi tabanında saklanacak.'}</p></div></div>`;
+  if (workflow.status === 'FAILED') return `<div class="connection-warning error"><strong>Güncelleme tamamlanamadı</strong><p>${escapeHtml(workflow.execution?.error || 'Yayınlama kanalı bilinmeyen bir hata döndürdü.')}</p></div>`;
+  if (workflow.status === 'REJECTED') return '<div class="approval-box"><strong>Öneri reddedildi</strong><br>Site üzerinde değişiklik yapılmadı. Yeni Search Console verisi geldiğinde fırsat yeniden değerlendirilebilir.</div>';
+  return '<div class="approval-box"><strong>Otomatik veri izleme</strong><br>Yeterli sinyal oluşana kadar site üzerinde değişiklik yapılmayacak.</div>';
+}
+function openWorkflowDetail(id) {
+  const workflow = state.workflows.find((item) => item.id === id);
+  if (!workflow) return;
+  const meta = workflowMeta[workflow.status] || workflowMeta.DISCOVERED;
+  const evidence = workflow.brief?.evidence || {};
+  const targetUrl = workflowTargetUrl(workflow);
+  const changes = workflow.brief?.changes || [];
+  const events = workflow.events || [];
+  $('#workflowDetailContent').innerHTML = `<header class="workflow-detail-head"><div><div class="workflow-meta"><span class="priority-label">${escapeHtml(workflow.priority.level)} · P${workflow.priority.score}</span><span class="workflow-status ${meta.className}">${meta.label}</span></div><h2 id="workflowDetailTitle">${escapeHtml(workflow.title)}</h2><p>${escapeHtml(workflow.reason)}</p></div><div class="workflow-detail-score"><strong>${workflow.priority.score}</strong><small>öncelik puanı</small></div></header><section class="detail-target"><small>Hedef sayfa</small><a href="${escapeHtml(targetUrl)}" target="_blank" rel="noopener">${escapeHtml(targetUrl)} ↗</a><p>${escapeHtml(workflow.brief?.action || '')}</p></section><div class="workflow-detail-grid"><main><section class="detail-section"><div class="detail-section-title"><span>1</span><div><h3>Önerilen değişiklikler</h3><p>Onayın tam olarak hangi alanları kapsadığını burada görürsün.</p></div></div>${changes.length ? `<div class="change-list">${changes.map((change) => `<article class="change-card"><span class="change-area">${escapeHtml(change.area)}</span><strong class="change-proposed">${escapeHtml(change.proposed)}</strong><p class="change-rationale">Neden: ${escapeHtml(change.rationale)}</p></article>`).join('')}</div>` : '<div class="approval-box">Bu görev site değişikliği önermiyor; yalnızca yeni veri bekliyor.</div>'}</section><section class="detail-section"><div class="detail-section-title"><span>2</span><div><h3>Kararın dayanağı</h3><p>Search Console sinyali ve ürün uyumu.</p></div></div><div class="evidence-grid"><article><small>Gösterim</small><strong>${number(evidence.impressions)}</strong></article><article><small>Ort. konum</small><strong>${number(evidence.position, 1)}</strong></article><article><small>Güven</small><strong>${escapeHtml(confidenceLabel[evidence.confidence] || evidence.confidence || '—')}</strong></article><article><small>Ürün uyumu</small><strong>${evidence.productFit || '—'}/5</strong></article></div>${workflow.brief?.queryFocus?.length ? `<div class="query-focus"><small>Hedef sorgular</small>${workflow.brief.queryFocus.map((query) => `<span class="query-pill">${escapeHtml(query)}</span>`).join('')}</div>` : ''}</section><section class="detail-section"><div class="detail-section-title"><span>3</span><div><h3>Uygulama ve kontrol planı</h3><p>Her adımın kim tarafından ve ne zaman yapılacağı açıkça gösterilir.</p></div></div><div class="detail-step-list">${(workflow.steps || []).map((step) => `<div class="detail-step"><i>${step.mode === 'approval' ? '●' : step.mode === 'controlled' ? '↗' : '✓'}</i><span>${escapeHtml(step.label)}</span><small>${step.mode === 'approval' ? 'Kullanıcı onayı' : step.mode === 'controlled' ? 'Bağlı site kanalı' : 'Otomatik'}</small></div>`).join('')}</div></section></main><aside><section class="detail-section sticky-detail"><h3>İşlem geçmişi</h3><div class="detail-timeline">${events.slice().reverse().map((event) => `<div class="timeline-item"><i></i><div><strong>${escapeHtml(event.label)}</strong><small>${escapeHtml(formatDateTime(event.at))} · ${event.actor === 'user' ? 'Kullanıcı' : 'Sistem'}</small></div></div>`).join('')}</div></section></aside></div><section class="detail-section detail-decision"><div class="detail-section-title"><span>4</span><div><h3>Şimdiki durum ve sonraki adım</h3><p>${escapeHtml(nextStepFor(workflow))}</p></div></div>${workflowActionPanel(workflow, targetUrl)}</section>`;
+  $('#workflowDetailModal').hidden = false;
+  $$('[data-workflow-action]', $('#workflowDetailContent')).forEach((button) =>
+    button.addEventListener('click', () => runWorkflowAction(button.dataset.workflowId,
+        button.dataset.workflowAction)));
+  $('[data-open-data-source]', $('#workflowDetailContent'))?.addEventListener('click', () => {
+    closeWorkflowDetail(); setView('data');
+  });
+}
+function closeWorkflowDetail() { $('#workflowDetailModal').hidden = true; }
 function renderAll() { renderOverview(); renderOpportunities(); renderQueries();
   renderPages(); renderDataState(); renderWorkflows(); }
 
@@ -258,8 +291,8 @@ async function runWorkflowAction(id, action) {
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
     const index = state.workflows.findIndex((item) => item.id === id);
     if (index >= 0) state.workflows[index] = payload.workflow;
-    renderWorkflows();
-    showToast(action === 'approve' ? 'Görev onaylandı ve uygulama kuyruğuna alındı.' :
+    renderWorkflows(); openWorkflowDetail(id);
+    showToast(action === 'approve' ? 'Değişiklik taslağı onaylandı; site henüz güncellenmedi.' :
       action === 'reject' ? 'Görev reddedildi.' : 'Görev durumu güncellendi.');
   } catch (exception) { showToast(exception.message, 'error'); }
 }
@@ -393,5 +426,7 @@ $('#importModal').addEventListener('click', (event) => { if (event.target === $(
 $('#importSubmit').addEventListener('click', importReport);
 $('#directoryInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') importReport(); });
 $('#drawerClose').addEventListener('click', closeDrawer); $('#drawerBackdrop').addEventListener('click', closeDrawer);
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; $('#googleModal').hidden = true; closeDrawer(); } });
+$$('[data-close-workflow]').forEach((button) => button.addEventListener('click', closeWorkflowDetail));
+$('#workflowDetailModal').addEventListener('click', (event) => { if (event.target === $('#workflowDetailModal')) closeWorkflowDetail(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; $('#googleModal').hidden = true; closeWorkflowDetail(); closeDrawer(); } });
 loadProjects().catch((error) => { console.error(error); showToast('Veri yüklenemedi; sunucu bağlantısını kontrol et.', 'error'); });

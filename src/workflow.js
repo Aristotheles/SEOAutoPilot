@@ -4,8 +4,9 @@ const crypto = require('node:crypto');
 
 const STATUS = Object.freeze({
   discovered: 'DISCOVERED', awaitingApproval: 'AWAITING_APPROVAL',
-  approved: 'APPROVED', monitoring: 'MONITORING', completed: 'COMPLETED',
-  rejected: 'REJECTED',
+  approved: 'APPROVED', applying: 'APPLYING', applied: 'APPLIED',
+  monitoring: 'MONITORING', completed: 'COMPLETED', rejected: 'REJECTED',
+  failed: 'FAILED',
 });
 const CONFIDENCE_SCORE = {very_low: 0, low: 4, medium: 8, high: 12, very_high: 16};
 const ACTION_SCORE = {UPDATE_EXISTING: 18, NEW_PAGE: 16, CTR_TEST: 14, HOLD: 0};
@@ -16,8 +17,7 @@ function priorityFor(opportunity) {
   const position = Number(opportunity.pageMetrics?.position ||
     opportunity.queryMetrics?.position || 0);
   const score = Math.max(0, Math.min(100, Math.round(
-      Number(opportunity.productFit || 3) * 9 +
-      Math.log10(impressions + 1) * 11 +
+      Number(opportunity.productFit || 3) * 9 + Math.log10(impressions + 1) * 11 +
       (CONFIDENCE_SCORE[opportunity.confidence] || 0) +
       (ACTION_SCORE[opportunity.action] || 0) +
       (position > 10 && position <= 30 ? 8 : 0) -
@@ -27,21 +27,65 @@ function priorityFor(opportunity) {
   return {score, level};
 }
 
+function languageFor(opportunity) {
+  if (opportunity.locale && opportunity.locale !== 'und') return opportunity.locale;
+  if (/^\/tr(?:\/|$)/u.test(opportunity.targetPath || '')) return 'tr';
+  if (/^\/en(?:\/|$)/u.test(opportunity.targetPath || '')) return 'en';
+  return /[çğıöşü]/iu.test(opportunity.label || '') ? 'tr' : 'en';
+}
+
+function changesFor(opportunity) {
+  if (opportunity.action === 'HOLD') return [];
+  const label = String(opportunity.label || 'Hedef konu');
+  const language = languageFor(opportunity);
+  const isTurkish = language === 'tr';
+  const title = isTurkish ? `${label}: Kurallar, Mantık ve Örnekler` :
+    `${label}: Rules, Patterns and Clear Examples`;
+  const description = isTurkish ?
+    `${label} konusunu açık kurallar, gerçek cümleler ve adım adım çözümlemelerle öğrenin.` :
+    `Understand ${label.toLowerCase()} with clear rules, real examples and step-by-step breakdowns.`;
+  if (opportunity.action === 'CTR_TEST') return [
+    {id: 'title-a', area: 'SEO başlığı · Varyant A', proposed: title,
+      rationale: 'Ana arama niyetini başlığın başında görünür kılar.'},
+    {id: 'title-b', area: 'SEO başlığı · Varyant B',
+      proposed: isTurkish ? `${label} Nasıl Öğrenilir? Pratik Rehber` :
+        `How to Master ${label}: A Practical Guide`,
+      rationale: 'Soru ve fayda odaklı alternatif CTR testi sağlar.'},
+    {id: 'meta', area: 'Meta açıklaması', proposed: description,
+      rationale: 'Sonuç sayfasında içeriğin değerini netleştirir.'},
+  ];
+  const queryFocus = (opportunity.matchedQueries || []).slice(0, 5);
+  return [
+    {id: 'title', area: 'SEO başlığı', proposed: title,
+      rationale: 'Birincil konuyu ve öğrenme vaadini birlikte anlatır.'},
+    {id: 'meta', area: 'Meta açıklaması', proposed: description,
+      rationale: 'Tıklama öncesinde sayfanın kapsamını açıklar.'},
+    {id: 'h1', area: 'H1 ve giriş', proposed: label,
+      rationale: 'Arama niyetiyle sayfanın ana konusunu aynı hizaya getirir.'},
+    {id: 'sections', area: 'İçerik bölümleri',
+      proposed: queryFocus.length ? queryFocus.join(' · ') :
+        (isTurkish ? 'Temel mantık · Sık hatalar · Açıklamalı örnekler' :
+          'Core pattern · Common mistakes · Explained examples'),
+      rationale: 'Gösterim alan alt sorguların sayfada açıkça cevaplanmasını sağlar.'},
+    {id: 'links', area: 'İç bağlantılar',
+      proposed: isTurkish ? 'İlgili ders ve ürün akışına 2–3 bağlamsal bağlantı ekle.' :
+        'Add 2–3 contextual links to the relevant lesson and product flow.',
+      rationale: 'Konu otoritesini ve ürün keşfini güçlendirir.'},
+  ];
+}
+
 function stepsFor(opportunity) {
   const common = [
     {id: 'evidence', label: 'Arama verisini ve niyeti doğrula', mode: 'automatic'},
-    {id: 'brief', label: 'Uygulanabilir değişiklik brifi hazırla', mode: 'automatic'},
+    {id: 'brief', label: 'Değişiklik ayrıntılarını ve taslağı hazırla', mode: 'automatic'},
   ];
-  if (opportunity.action === 'HOLD') return [
-    ...common, {id: 'wait', label: 'Yeni veri eşiğini bekle', mode: 'automatic'},
-    {id: 'review', label: 'Sinyali yeniden değerlendir', mode: 'automatic'},
-  ];
-  const actionStep = opportunity.action === 'NEW_PAGE' ? 'Yeni sayfa taslağını hazırla' :
-    opportunity.action === 'CTR_TEST' ? 'Başlık ve açıklama varyantlarını hazırla' :
-      'Mevcut sayfa için revizyon taslağı hazırla';
-  return [...common, {id: 'draft', label: actionStep, mode: 'automatic'},
-    {id: 'approval', label: 'Değişikliği kullanıcıya onaylat', mode: 'approval'},
-    {id: 'apply', label: 'Onaylanan değişikliği uygula', mode: 'controlled'},
+  if (opportunity.action === 'HOLD') return [...common,
+    {id: 'wait', label: 'Yeni veri eşiğini bekle', mode: 'automatic'},
+    {id: 'review', label: 'Sinyali yeniden değerlendir', mode: 'automatic'}];
+  return [...common,
+    {id: 'approval', label: 'Bütün değişiklikleri kullanıcıya onaylat', mode: 'approval'},
+    {id: 'apply', label: 'Onaylanan değişiklikleri bağlı siteye uygula', mode: 'controlled'},
+    {id: 'verify', label: 'Yayınlanan sayfayı ve değişiklikleri doğrula', mode: 'automatic'},
     {id: 'monitor14', label: '14 günlük etki kontrolü', mode: 'automatic'},
     {id: 'monitor28', label: '28 günlük sonuç değerlendirmesi', mode: 'automatic'}];
 }
@@ -53,7 +97,7 @@ function briefFor(opportunity) {
       opportunity.action === 'HOLD' ? 'Değişiklik yapma; veri eşiğini bekle.' :
         'Yeni sayfa açmadan mevcut hedef sayfayı güçlendir.';
   return {objective: opportunity.reason, action: actionText,
-    targetPath: opportunity.targetPath,
+    targetPath: opportunity.targetPath, changes: changesFor(opportunity),
     evidence: {impressions: opportunity.queryMetrics?.impressions || 0,
       position: opportunity.pageMetrics?.position || opportunity.queryMetrics?.position || 0,
       confidence: opportunity.confidence, productFit: opportunity.productFit},
@@ -61,25 +105,47 @@ function briefFor(opportunity) {
 }
 
 function workflowId(projectId, opportunity) {
-  return crypto.createHash('sha256').update(`${projectId}:${opportunity.clusterId}:${opportunity.targetPath}`)
+  return crypto.createHash('sha256')
+      .update(`${projectId}:${opportunity.clusterId}:${opportunity.targetPath}`)
       .digest('hex').slice(0, 14);
 }
 
-function createWorkflow(projectId, opportunity, previous) {
+function initialEvents(now) {
+  return [
+    {type: 'DISCOVERED', label: 'SEO fırsatı tespit edildi', at: now, actor: 'system'},
+    {type: 'BRIEF_READY', label: 'Kanıtlar ve değişiklik taslağı hazırlandı', at: now,
+      actor: 'system'},
+  ];
+}
+
+function migratePrevious(previous, requiresApproval, now) {
+  if (!previous) return null;
+  const invalidCompletion = [STATUS.monitoring, STATUS.completed].includes(previous.status) &&
+    !previous.execution?.appliedAt;
+  if (!invalidCompletion) return previous;
+  return {...previous, status: requiresApproval ? STATUS.awaitingApproval : STATUS.discovered,
+    approvedAt: null, monitoringStartedAt: null, completedAt: null,
+    events: [...(previous.events || initialEvents(previous.createdAt || now)), {
+      type: 'REPAIRED', label: 'Gerçek uygulama kaydı olmadığı için görev onay aşamasına alındı',
+      at: now, actor: 'system'}]};
+}
+
+function createWorkflow(projectId, opportunity, previousValue) {
   const priority = priorityFor(opportunity);
   const requiresApproval = opportunity.action !== 'HOLD';
   const now = new Date().toISOString();
+  const previous = migratePrevious(previousValue, requiresApproval, now);
   return {id: workflowId(projectId, opportunity), projectId,
     opportunityId: opportunity.clusterId, title: opportunity.label,
     action: opportunity.action, priority, requiresApproval,
     status: previous?.status || (requiresApproval ? STATUS.awaitingApproval : STATUS.discovered),
     targetPath: opportunity.targetPath, reason: opportunity.reason,
     brief: briefFor(opportunity), steps: stepsFor(opportunity),
-    createdAt: previous?.createdAt || now, updatedAt: now,
+    events: previous?.events || initialEvents(now), execution: previous?.execution || null,
+    result: previous?.result || null, createdAt: previous?.createdAt || now, updatedAt: now,
     approvedAt: previous?.approvedAt || null,
     monitoringStartedAt: previous?.monitoringStartedAt || null,
-    completedAt: previous?.completedAt || null,
-  };
+    completedAt: previous?.completedAt || null};
 }
 
 function syncWorkflows(projectId, report, existing = []) {
@@ -90,21 +156,67 @@ function syncWorkflows(projectId, report, existing = []) {
   }).sort((left, right) => right.priority.score - left.priority.score);
 }
 
-function transition(workflow, action) {
-  const now = new Date().toISOString();
+function addEvent(workflow, type, label, now, actor = 'user') {
+  return [...(workflow.events || []), {type, label, at: now, actor}];
+}
+
+function transition(workflow, action, options = {}) {
+  const now = options.now || new Date().toISOString();
   if (action === 'approve' && workflow.status === STATUS.awaitingApproval) {
-    return {...workflow, status: STATUS.approved, approvedAt: now, updatedAt: now};
+    return {...workflow, status: STATUS.approved, approvedAt: now, updatedAt: now,
+      events: addEvent(workflow, 'APPROVED', 'Önerilen değişiklikler kullanıcı tarafından onaylandı', now)};
   }
   if (action === 'reject' && workflow.status === STATUS.awaitingApproval) {
-    return {...workflow, status: STATUS.rejected, updatedAt: now};
+    return {...workflow, status: STATUS.rejected, updatedAt: now,
+      events: addEvent(workflow, 'REJECTED', 'Öneri kullanıcı tarafından reddedildi', now)};
   }
-  if (action === 'start_monitoring' && workflow.status === STATUS.approved) {
-    return {...workflow, status: STATUS.monitoring, monitoringStartedAt: now, updatedAt: now};
+  if (action === 'start_monitoring' && workflow.status === STATUS.applied &&
+      workflow.execution?.appliedAt) {
+    return {...workflow, status: STATUS.monitoring, monitoringStartedAt: now, updatedAt: now,
+      events: addEvent(workflow, 'MONITORING', '14/28 günlük sonuç izleme başladı', now, 'system')};
   }
   if (action === 'complete' && workflow.status === STATUS.monitoring) {
-    return {...workflow, status: STATUS.completed, completedAt: now, updatedAt: now};
+    const elapsed = new Date(now).getTime() - new Date(workflow.monitoringStartedAt).getTime();
+    if (elapsed < 14 * 24 * 60 * 60 * 1000) {
+      throw new Error('Sonuç değerlendirmesi için 14 günlük izleme süresi henüz dolmadı.');
+    }
+    return {...workflow, status: STATUS.completed, completedAt: now, updatedAt: now,
+      result: options.result || workflow.result || null,
+      events: addEvent(workflow, 'COMPLETED', 'İzleme sonucu değerlendirildi', now)};
   }
   throw new Error('Bu görev mevcut durumunda bu işleme izin vermiyor.');
 }
 
-module.exports = {STATUS, briefFor, priorityFor, stepsFor, syncWorkflows, transition};
+function beginExecution(workflow, provider, now = new Date().toISOString()) {
+  if (workflow.status === STATUS.applying) {
+    throw new Error('Güncelleme hâlâ devam ediyor. Tamamlanmasını bekle.');
+  }
+  if (workflow.status !== STATUS.approved) {
+    throw new Error('Uygulama başlamadan önce değişiklikler onaylanmalı.');
+  }
+  return {...workflow, status: STATUS.applying, updatedAt: now,
+    execution: {provider, state: 'running', startedAt: now, appliedAt: null,
+      url: null, revision: null, error: null},
+    events: addEvent(workflow, 'APPLYING', 'Onaylanan değişiklikler uygulanıyor', now, 'system')};
+}
+
+function finishExecution(workflow, output, now = new Date().toISOString()) {
+  if (workflow.status !== STATUS.applying || workflow.execution?.state !== 'running') {
+    throw new Error('Tamamlanmayı bekleyen bir güncelleme bulunmuyor.');
+  }
+  return {...workflow, status: STATUS.applied, updatedAt: now,
+    execution: {...workflow.execution, state: 'applied', appliedAt: now,
+      url: output.url, revision: output.revision || null},
+    events: addEvent(workflow, 'APPLIED', 'Sayfa güncellendi ve yayın adresi doğrulandı', now,
+        'system')};
+}
+
+function failExecution(workflow, error, now = new Date().toISOString()) {
+  if (workflow.status !== STATUS.applying) return workflow;
+  return {...workflow, status: STATUS.failed, updatedAt: now,
+    execution: {...workflow.execution, state: 'failed', error: String(error)},
+    events: addEvent(workflow, 'FAILED', 'Güncelleme tamamlanamadı', now, 'system')};
+}
+
+module.exports = {STATUS, beginExecution, briefFor, changesFor, failExecution,
+  finishExecution, priorityFor, stepsFor, syncWorkflows, transition};

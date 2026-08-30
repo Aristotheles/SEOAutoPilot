@@ -66,7 +66,7 @@ function projectIdFrom(pathname, suffix) {
 }
 async function routeApi(request, response, requestUrl) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.4.2'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.5.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
