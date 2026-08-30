@@ -28,6 +28,14 @@ const workflowMeta = {
 function number(value, digits = 0) { return Number(value || 0).toLocaleString('tr-TR', {maximumFractionDigits: digits}); }
 function percent(value) { return `%${number(Number(value || 0) * 100, 1)}`; }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, (char) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[char])); }
+function formatDateTime(value, short = false) {
+  if (!value) return 'Henüz yok';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Bilinmiyor';
+  return date.toLocaleString('tr-TR', short ?
+    {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'} :
+    {day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+}
 function scoreFor(report) {
   const {impressions, clicks, activeDays} = report.summary;
   return Math.min(100, Math.round(Math.log10(impressions + 1) * 10 + clicks * 2 + activeDays));
@@ -135,8 +143,10 @@ function renderPages() {
 
 function renderDataState() {
   const live = state.mode === 'live' || state.mode === 'api';
+  const lastSyncAt = state.project?.lastSyncAt;
   $('#dataStatus').classList.toggle('live', live);
-  $('#dataStatus').innerHTML = `<i></i> ${state.mode === 'api' ? 'API senkronize' : live ? 'Gerçek veri' : 'Demo veri'}`;
+  const statusText = state.mode === 'api' ? 'API senkronize' : live ? 'Gerçek veri' : 'Demo veri';
+  $('#dataStatus').innerHTML = `<i></i> ${statusText}${lastSyncAt ? ` · ${escapeHtml(formatDateTime(lastSyncAt, true))}` : ''}`;
   $('#sourcePath').textContent = state.mode === 'live' ? state.directory :
     state.mode === 'api' ? 'API verisi kullanılıyor.' : 'Bu proje için henüz gerçek veri yok.';
   const connected = state.project?.connection === 'connected';
@@ -145,6 +155,7 @@ function renderDataState() {
       'Otomatik veri akışı için OAuth bağlantısını yapılandır.';
   $('#googleAction').textContent = connected ? 'Şimdi yenile' :
     state.googleStatus?.configured ? 'Google’a bağla' : 'API’yi kur';
+  $('#lastSyncLabel').textContent = `Son güncelleme: ${formatDateTime(lastSyncAt)}`;
 }
 function nextStepFor(workflow) {
   if (workflow.status === 'AWAITING_APPROVAL') return 'Hazırlanan değişikliği incele ve karar ver';
@@ -298,7 +309,9 @@ async function importReport() {
     const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({directory: $('#directoryInput').value})});
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || 'İçe aktarma başarısız.');
-    Object.assign(state, payload); await loadWorkflows(); renderAll(); $('#importModal').hidden = true; showToast('Search Console verisi analiz edildi ve görevler güncellendi.');
+    Object.assign(state, payload);
+    if (payload.project) updateCurrentProject(payload.project);
+    await loadWorkflows(); renderAll(); $('#importModal').hidden = true; showToast('Search Console verisi analiz edildi ve görevler güncellendi.');
   } catch (exception) { error.textContent = exception.message; }
   finally { button.disabled = false; button.innerHTML = 'Analizi başlat <span>→</span>'; }
 }
@@ -326,7 +339,9 @@ async function syncGoogle(automatic = false) {
   try {
     const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/google/sync`, {method: 'POST'});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
-    Object.assign(state, payload); await loadWorkflows(); renderAll(); showToast('Search Console verisi ve görevler güncellendi.');
+    Object.assign(state, payload);
+    if (payload.project) updateCurrentProject(payload.project);
+    await loadWorkflows(); renderAll(); showToast(`Search Console güncellendi: ${formatDateTime(state.project.lastSyncAt)}`);
     sessionStorage.setItem(`seo-auto-synced-${state.project.id}`, '1');
     return true;
   } catch (exception) {
@@ -334,6 +349,12 @@ async function syncGoogle(automatic = false) {
     return false;
   }
   finally { button.disabled = false; renderDataState(); }
+}
+function updateCurrentProject(project) {
+  state.project = project;
+  const index = state.projects.findIndex((item) => item.id === project.id);
+  if (index >= 0) state.projects[index] = project;
+  renderProjects();
 }
 async function autoSyncOnOpen() {
   if (state.project?.connection !== 'connected') return;

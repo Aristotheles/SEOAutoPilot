@@ -66,7 +66,7 @@ function projectIdFrom(pathname, suffix) {
 }
 async function routeApi(request, response, requestUrl) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.4.1'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.4.2'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -127,10 +127,10 @@ async function routeApi(request, response, requestUrl) {
       const loaded = loadExport(payload.directory.trim(),
           {clusters: project.id === 'lingodecoder' ? undefined : []});
       const workflows = syncWorkflows(project.id, loaded.report, project.workflows || []);
-      updateProject(importId, {csvDirectory: loaded.directory, lastSyncReport: null,
-        lastSyncAt: new Date().toISOString(), workflows});
+      const importedProject = updateProject(importId, {csvDirectory: loaded.directory,
+        lastSyncReport: null, lastSyncAt: new Date().toISOString(), workflows});
       json(response, 200, {report: loaded.report, mode: 'live', directory: loaded.directory,
-        projectId: importId});
+        projectId: importId, project: importedProject});
     } catch (error) { json(response, 400, {error: error.message, code: error.code || 'IMPORT_FAILED'}); }
     return true;
   }
@@ -176,9 +176,10 @@ async function routeApi(request, response, requestUrl) {
           {clusters: project.id === 'lingodecoder' ? undefined : []});
       report.source = 'search_console_api';
       const workflows = syncWorkflows(project.id, report, project.workflows || []);
-      updateProject(project.id, {lastSyncReport: report, lastSyncAt: new Date().toISOString(),
-        workflows});
-      json(response, 200, {report, mode: 'api', directory: '', projectId: project.id});
+      const syncedProject = updateProject(project.id, {lastSyncReport: report,
+        lastSyncAt: new Date().toISOString(), workflows});
+      json(response, 200, {report, mode: 'api', directory: '', projectId: project.id,
+        project: syncedProject});
     } catch (error) { json(response, 400, {error: error.message}); }
     return true;
   }

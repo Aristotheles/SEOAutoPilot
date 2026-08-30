@@ -52,7 +52,9 @@ http://127.0.0.1:4173/oauth/google/callback
 Bağlı projeler uygulama açıldığında otomatik olarak senkronize edilir. Aynı
 tarayıcı oturumundaki sayfa yenilemeleri gereksiz API çağrısı üretmez. Uygulama
 Google hesabındaki yetkili Search Console mülklerini listeler ve proje alan
-adıyla eşleşen Domain veya URL-prefix mülkünü kendisi seçer.
+adıyla eşleşen Domain veya URL-prefix mülkünü kendisi seçer. Son başarılı
+senkronizasyonun tarih ve saati üst durum rozetinde ve veri kaynağı kartında
+gösterilir.
 
 ## Kontrollü otomasyon
 
