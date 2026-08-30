@@ -105,6 +105,19 @@ için ayrıca `origin` uzak deposu ve kullanıcının yayın onayı gerekir.
 Bağlantıyı kaydetmek siteyi yayınlamaz. Gizli anahtarlar ve özel kullanıcı
 verileri Git'e veya yayın klasörüne eklenmemelidir.
 
+Firebase hesabı her proje için otomatik seçilir: CLI'de kayıtlı hesapların
+ilgili proje ve Hosting sitesine erişimi sorgulanır. Eksik hesap bir kez
+`firebase login:add eposta` ile eklenir; Search Console OAuth bağlantısından
+bağımsızdır. Seçilen e-posta projede saklanır; tokenlar SEOAutoPilot'a kopyalanmaz.
+Arayüz hesap ve kontrol zamanını gösterir. Erişim doğrulanamazsa önizleme ve
+yayın kapalıdır; yeni bağlantı doğrulanmadan kaydedilmez.
+
+Önizleme/yayın öncesinde erişim yeniden kontrol edilir ve Firebase komutlarına
+açık `--account` verilir. Flutter release betiğinin iç komutları yalnız izole
+çalışma kopyasında seçilen hesabı kullanır; global varsayılan hesap değiştirilmez.
+Bu kontrol Hosting erişimini doğrular, tüm yayın/IAM izinlerinin garantisi
+değildir; ek izinler Firebase tarafından yayın sırasında kontrol edilir.
+
 ## Bağlantı ve proje kaldırma
 
 Veri kaynakları → Bağlantıları yönet / kaldır bölümünde:

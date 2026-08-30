@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const {applyWorkflowChanges, detectConnection, findPreviewUrl, firebaseInvocation,
-  inspectConnection, npmInvocation, targetFile, verifyBuiltPage, projectLayout, publishPreview} = require('../src/deployment');
+  inspectConnection, inspectFirebaseConnection, npmInvocation, targetFile, verifyBuiltPage, projectLayout, publishPreview} = require('../src/deployment');
 
 function fixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'seo-deployment-'));
@@ -35,6 +35,24 @@ test('detects a project-scoped local Git and Firebase connection', () => {
 test('fails closed for a directory that is not a Git repository', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'seo-not-git-'));
   assert.throws(() => detectConnection(directory), /Git deposu/u);
+});
+
+test('local Git alone cannot enable preview or publication in verified connection status', async () => {
+  const root = fixture();
+  execFileSync('git', ['remote', 'add', 'origin', 'https://example.com/test.git'], {cwd: root});
+  const connection = detectConnection(root);
+  const denied = await inspectFirebaseConnection(connection, async () => ({result: []}));
+  assert.equal(denied.connected, true);
+  assert.equal(denied.state, 'attention');
+  assert.equal(denied.capabilities.preview, false);
+  assert.equal(denied.capabilities.production, false);
+  const verified = await inspectFirebaseConnection(connection, async args => args[0] === 'login:list' ?
+    {result: [{user: {email: 'right@example.com'}, tokens: {secret: 'hidden'}}]} :
+    {status: 'success', result: {sites: [{name: 'projects/example-project/sites/example-project'}]}});
+  assert.equal(verified.connection.firebaseAccount, 'right@example.com');
+  assert.equal(verified.capabilities.preview, true);
+  assert.equal(verified.capabilities.production, true);
+  assert.doesNotMatch(JSON.stringify(verified), /hidden/);
 });
 
 test('applies only exact approved HTML fields and reports pending editorial work', () => {

@@ -172,13 +172,13 @@ function renderDataState() {
   $('#lastSyncLabel').textContent = `Son güncelleme: ${formatDateTime(lastSyncAt)}`;
   const deployment = state.deploymentStatus;
   const ready = deployment?.connected;
-  $('#deploymentState').textContent = ready ?
-    (deployment.state === 'ready' ? 'Hazır' : 'Kontrol gerekli') : 'Bağlı değil';
+  $('#deploymentState').textContent = deployment?.state === 'checking' ? 'Firebase hesapları kontrol ediliyor…' : ready ?
+    (deployment.state === 'ready' ? 'Firebase erişimi doğrulandı' : 'Kontrol gerekli') : 'Bağlı değil';
   $('#deploymentState').className = `source-state ${ready ?
     (deployment.state === 'ready' ? '' : 'attention') : 'disconnected'}`;
   $('#deploymentAction').textContent = ready ? 'Bağlantıyı incele' : 'Bağlantıyı kur';
   $('#deploymentSourceText').textContent = ready ?
-    `${deployment.connection.framework} · ${deployment.connection.provider} · ${deployment.connection.branch} dalı · ${deployment.connection.sourceDirectory || 'web'} → ${deployment.connection.outputDirectory || 'build/web'} · ${deployment.untrackedFiles || 0} izlenmeyen dosya${deployment.publicationWarning ? ` · ${deployment.publicationWarning}` : ''}` :
+    `${deployment.connection.framework} · ${deployment.connection.provider} · ${deployment.connection.branch} dalı · ${deployment.connection.sourceDirectory || 'web'} → ${deployment.connection.outputDirectory || 'build/web'} · ${deployment.untrackedFiles || 0} izlenmeyen dosya · Firebase hesabı: ${deployment.firebaseAccess?.account || 'doğrulanmadı'} · Erişim kontrolü: ${formatDateTime(deployment.firebaseAccess?.checkedAt)}${deployment.publicationWarning ? ` · ${deployment.publicationWarning}` : ''}` :
     'Onaylanan değişikliklerin gerçekten uygulanması için yerel Git ve yayınlama bağlantısı gerekir.';
 }
 function nextStepFor(workflow) {
@@ -223,11 +223,12 @@ function workflowPreviewUrl(workflow) {
 }
 function workflowActionPanel(workflow, targetUrl) {
   if (workflow.status === 'PREVIEW_READY' && state.deploymentStatus?.capabilities?.production === false) {
-    return `<div class="connection-warning"><div><strong>Önizleme hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflowPreviewUrl(workflow))}" target="_blank" rel="noopener">Hedef sayfa önizlemesini gör ↗</a><button class="modal-submit" disabled>Canlı yayın için uzak depo gerekli</button></div>`;
+    return `<div class="connection-warning"><div><strong>Önizleme hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflowPreviewUrl(workflow))}" target="_blank" rel="noopener">Hedef sayfa önizlemesini gör ↗</a><button class="modal-submit" disabled>Yayın bağlantısını doğrula</button></div>`;
   }
   if (workflow.status === 'PLANNED') return `<div class="approval-box"><strong>Öneri unutulmayacak şekilde editoryal kuyruğa kaydedildi.</strong><br>Search Console sinyali, mevcut içerikle çakışma ve hedef sorgular doğrulanmadan yayın taslağına dönüştürülmeyecek.</div>`;
   if (workflow.status === 'AWAITING_APPROVAL') return `<div class="approval-box detail-approval"><strong>Onaylamadan önce yukarıdaki değişikliklerin tamamını kontrol et.</strong><br>Onay yalnızca bu listelenen taslağı uygulama aşamasına geçirir; siteyi henüz değiştirmez.</div><div class="detail-actions"><button class="reject-button detail-reject" data-workflow-action="reject" data-workflow-id="${escapeHtml(workflow.id)}">Öneriyi reddet</button><button class="modal-submit detail-approve" data-workflow-action="approve" data-workflow-id="${escapeHtml(workflow.id)}">Bu değişiklikleri onayla <span>→</span></button></div>`;
   if (workflow.status === 'APPROVED' && !state.deploymentStatus?.connected) return `<div class="connection-warning"><strong>Site güncelleme bağlantısı henüz kurulmadı</strong><p>Öneri onaylandı fakat kaynak koduna bağlı bir yayınlama kanalı yok. Bu nedenle SEOAutoPilot sayfayı değiştirmiş gibi davranmayacak.</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Site bağlantısını kur →</button></div>`;
+  if (workflow.status === 'APPROVED' && !state.deploymentStatus?.capabilities?.preview) return `<div class="connection-warning"><strong>Firebase erişimi doğrulanmadı; önizleme başlatılmadı</strong><p>${escapeHtml(state.deploymentStatus?.publicationWarning || 'Firebase hesabını kontrol et.')}</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Bağlantıyı kontrol et →</button></div>`;
   if (workflow.status === 'APPROVED') return `<div class="apply-progress monitoring"><i>↗</i><div><strong>Önizleme hazırlanmaya hazır</strong><p>Değişiklikler ${escapeHtml(state.deploymentStatus.connection.branch)} dalından oluşturulacak ayrı bir Git çalışma alanına uygulanacak. Canlı site bu aşamada değişmez.</p></div></div><div class="detail-actions"><button class="modal-submit" data-workflow-preview="${escapeHtml(workflow.id)}">Firebase önizlemesi hazırla <span>→</span></button></div>`;
   if (workflow.status === 'APPLYING') return `<div class="apply-progress"><i></i><div><strong>Sayfa güncelleniyor…</strong><p>Onaylanan değişiklikler bağlı yayınlama kanalı üzerinden uygulanıyor. Bu pencereyi yeniden açarsan işlem bitene kadar aynı durum gösterilir.</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Güncelleme henüz bitmedi</button></div>`;
   if (workflow.status === 'PREVIEW_READY') return `<div class="apply-progress done"><i>✓</i><div><strong>Firebase önizlemesi hazır</strong><p>${escapeHtml(formatDateTime(workflow.execution?.previewAt))} · ${workflow.execution?.appliedChangeIds?.length || 0} kesin değişiklik uygulandı · ${workflow.execution?.pendingChangeIds?.length || 0} editoryal madde sırada kaldı.</p></div></div><div class="connection-warning"><strong>Canlı site henüz değişmedi</strong><p>Önizlemeyi açıp hedef sayfayı kontrol et. “Canlıya yayınla” ikinci ve son kullanıcı onayıdır; Git dalı güncellenir ve Firebase Hosting deploy başlar.</p></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflowPreviewUrl(workflow))}" target="_blank" rel="noopener">Hedef sayfa önizlemesini gör ↗</a><button class="modal-submit" data-workflow-publish="${escapeHtml(workflow.id)}">Canlıya yayınla <span>→</span></button></div>`;
@@ -319,22 +320,30 @@ function showToast(message, type = 'success') {
 }
 
 async function loadReport() {
-  const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/report`);
+  const projectId = state.project.id;
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/report`);
   const payload = await response.json();
+  if (state.project?.id !== projectId) return;
   if (!response.ok) throw new Error(payload.error || 'Veri alınamadı.');
   Object.assign(state, payload);
   await Promise.all([loadWorkflows(), loadDeploymentStatus()]);
   renderAll();
 }
 async function loadWorkflows() {
-  const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/workflows`);
+  const projectId = state.project.id;
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/workflows`);
   const payload = await response.json();
+  if (state.project?.id !== projectId) return;
   if (!response.ok) throw new Error(payload.error || 'İş akışları alınamadı.');
   state.workflows = payload.workflows || [];
 }
 async function loadDeploymentStatus() {
-  const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/deployment`);
+  const projectId = state.project.id;
+  state.deploymentStatus = {connected: false, state: 'checking'};
+  renderDataState();
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/deployment`);
   const payload = await response.json();
+  if (state.project?.id !== projectId) return;
   state.deploymentStatus = response.ok ? payload : {connected: false, state: 'error',
     error: payload.error};
 }
@@ -533,7 +542,7 @@ function openDeploymentModal() {
   $('#repositoryPathInput').value = state.deploymentStatus?.connection?.repositoryPath ||
     state.project?.deployment?.repositoryPath || (state.project?.id === 'lingodecoder' ?
       'C:\\LingoDecoder' : '');
-  $('#deploymentError').textContent = state.deploymentStatus?.error || '';
+  $('#deploymentError').textContent = state.deploymentStatus?.error || state.deploymentStatus?.publicationWarning || '';
   $('#deploymentModal').hidden = false;
 }
 async function saveDeployment() {
@@ -547,7 +556,7 @@ async function saveDeployment() {
     state.deploymentStatus = payload.deployment;
     if (payload.project) updateCurrentProject(payload.project);
     renderDataState(); $('#deploymentModal').hidden = true;
-    showToast('Yerel Git ve Firebase Hosting bağlantısı doğrulandı.');
+    showToast(`Firebase erişimi doğrulandı: ${payload.deployment.firebaseAccess.account}`);
   } catch (exception) { error.textContent = exception.message; }
   finally { button.disabled = false; button.innerHTML = 'Bağlantıyı doğrula ve kaydet <span>→</span>'; }
 }

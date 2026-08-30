@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const {execFile} = require('node:child_process');
+const {firebaseEnvironment, resolveFirebaseAccount} = require('./firebase-access');
 
 function firebaseInvocation(args) {
   if (process.platform !== 'win32') return {command: 'firebase', args};
@@ -63,7 +64,9 @@ function projectLayout(root) {
   const outputDirectory = config.hosting?.public || (hasVite ? 'dist' : hasFlutter ? 'build/web' : 'web');
   safeDirectory(root, sourceDirectory); safeDirectory(root, outputDirectory);
   if (hasVite && !pkg.scripts?.build) throw new Error('Vite projesinde npm build komutu tanımlanmalı.');
+  if (config.hosting?.target) throw new Error('Firebase Hosting target eşleştirmesi henüz desteklenmiyor; açık site kimliği gerekli.');
   return {framework: hasFlutter ? 'flutter' : hasVite ? 'vite' : 'static',
+    firebaseSite: config.hosting?.site || readFirebaseProject(root),
     sourceDirectory, outputDirectory,
     releaseBuilder: hasFlutter && fs.existsSync(path.join(root, 'tool', 'build_web_release.mjs')) ?
       'lingodecoder_flutter_release' : hasFlutter ? 'flutter_web_release' : hasVite ? 'vite_release' : 'static_site'};
@@ -122,9 +125,33 @@ function publicConnection(connection) {
   return safe;
 }
 
+function firebaseJson(args, cwd) {
+  const invocation = firebaseInvocation(args);
+  return new Promise((resolve, reject) => {
+    execFile(invocation.command, invocation.args, {cwd, encoding: 'utf8', windowsHide: true,
+      timeout: 45_000, maxBuffer: 4 * 1024 * 1024, env: firebaseEnvironment()}, (error, stdout) => {
+      // Never include raw stdout/stderr here: login:list returns credential objects.
+      if (error) return reject(new Error('Firebase erişim kontrolü başarısız.'));
+      try { resolve(JSON.parse(stdout)); } catch (_) { reject(new Error('Firebase yanıtı okunamadı.')); }
+    });
+  });
+}
+
+async function inspectFirebaseConnection(connection, runner) {
+  const checked = inspectConnection(connection);
+  if (!checked.connected) return checked;
+  const access = await resolveFirebaseAccount(checked.connection,
+    runner || (args => firebaseJson(args, checked.connection.repositoryPath)));
+  return {...checked, state: access.verified ? checked.state : 'attention', firebaseAccess: access,
+    connection: {...checked.connection, firebaseAccount: access.account},
+    capabilities: {...checked.capabilities, preview: checked.capabilities.preview && access.verified,
+      production: checked.capabilities.production && access.verified},
+    publicationWarning: access.error || checked.publicationWarning};
+}
+
 function runAsync(command, args, cwd, timeout = 20 * 60_000) {
   return new Promise((resolve, reject) => {
-    execFile(command, args, {cwd, encoding: 'utf8', timeout, windowsHide: true,
+    execFile(command, args, {cwd, encoding: 'utf8', timeout, windowsHide: true, env: firebaseEnvironment(),
       maxBuffer: 20 * 1024 * 1024}, (error, stdout, stderr) => {
       if (error) {
         const detail = String(stderr || stdout || error.message).trim().split(/\r?\n/u)
@@ -218,9 +245,16 @@ function verifyBuiltPage(root, sourceFile) {
   return built;
 }
 
-async function buildProject(root) {
+async function buildProject(root, account) {
   const layout = projectLayout(root);
   if (layout.releaseBuilder === 'lingodecoder_flutter_release') {
+    if (account) {
+      // Nested Firebase calls in the existing release script use only this isolated directory's account.
+      if (!fs.existsSync(path.join(root, 'firebase.json'))) throw new Error('İzole Firebase yapılandırması gerekli.');
+      const select = firebaseInvocation(['login:use', account, '--non-interactive']);
+      try { await runAsync(select.command, select.args, root, 30_000); }
+      catch (error) { if (!error.message.includes('Already using account')) throw new Error('Derleme hesabı seçilemedi.'); }
+    }
     await runAsync(process.execPath, ['tool/build_web_release.mjs'], root);
   } else if (layout.releaseBuilder === 'vite_release') {
     if (!fs.existsSync(path.join(root, 'package-lock.json'))) throw new Error('Güvenli Vite derlemesi için package-lock.json gerekli.');
@@ -255,11 +289,14 @@ function deploymentRoot() {
 }
 
 async function preparePreview(workflow, connection) {
-  const checked = inspectConnection(connection);
+  const checked = await inspectFirebaseConnection(connection);
   if (!checked.connected || connection.provider !== 'firebase_hosting') {
     throw new Error(checked.error || 'Firebase Hosting bağlantısı hazır değil.');
   }
   if (!connection.firebaseProject) throw new Error('Firebase proje kimliği bulunamadı.');
+  if (!checked.capabilities?.preview) throw new Error(checked.publicationWarning || 'Firebase erişimi doğrulanmadı.');
+  const account = checked.firebaseAccess.account;
+  if (checked.connection.firebaseProject !== connection.firebaseProject) throw new Error('Firebase proje ayarı değişmiş; bağlantıyı yeniden kaydet.');
   const stamp = Date.now().toString(36);
   const branch = `seoautopilot/${workflow.id}-${stamp}`;
   const worktreePath = path.join(deploymentRoot(), `${workflow.projectId}-${workflow.id}-${stamp}`);
@@ -267,6 +304,10 @@ async function preparePreview(workflow, connection) {
   await runAsync('git', ['worktree', 'add', '-b', branch, worktreePath,
     connection.branch], connection.repositoryPath, 60_000);
   try {
+    if (readFirebaseProject(worktreePath) !== connection.firebaseProject ||
+        projectLayout(worktreePath).firebaseSite !== checked.connection.firebaseSite) {
+      throw new Error('Kaynak dal ile doğrulanan Firebase hedefi farklı; bağlantıyı kontrol et.');
+    }
     const patch = applyWorkflowChanges(workflow, worktreePath);
     await runAsync('git', ['add', '--', patch.sourceFile], worktreePath, 30_000);
     await runAsync('git', ['-c', 'user.name=SEOAutoPilot',
@@ -275,12 +316,12 @@ async function preparePreview(workflow, connection) {
     if (fs.existsSync(path.join(worktreePath, 'tool', 'verify_seo.mjs'))) {
       await runAsync('node', ['tool/verify_seo.mjs'], worktreePath, 120_000);
     }
-    await buildProject(worktreePath);
+    await buildProject(worktreePath, account);
     verifyBuiltPage(worktreePath, patch.sourceFile);
     const channel = `seo-${workflow.id.slice(0, 12)}`;
     const previewCommand = firebaseInvocation(['hosting:channel:deploy', channel,
       '--expires', '7d', '--project', connection.firebaseProject, '--json',
-      '--non-interactive']);
+      '--non-interactive', '--account', account]);
     const output = await runAsync(previewCommand.command, previewCommand.args, worktreePath,
         10 * 60_000);
     let parsed;
@@ -288,7 +329,7 @@ async function preparePreview(workflow, connection) {
     let url = findPreviewUrl(parsed);
     if (!url) {
       const listCommand = firebaseInvocation(['hosting:channel:list', '--project',
-        connection.firebaseProject, '--json', '--non-interactive']);
+        connection.firebaseProject, '--json', '--non-interactive', '--account', account]);
       const listOutput = await runAsync(listCommand.command, listCommand.args, worktreePath,
           2 * 60_000);
       let listValue;
@@ -301,7 +342,8 @@ async function preparePreview(workflow, connection) {
     if (!url) throw new Error('Firebase önizleme adresi doğrulanamadı.');
     const revision = await runAsync('git', ['rev-parse', 'HEAD'], worktreePath, 30_000);
     return {url, previewPageUrl: new URL(workflow.targetPath, url).href,
-      revision, branch, worktreePath, channel, sourceFile: patch.sourceFile,
+      revision, branch, worktreePath, channel, firebaseAccount: account,
+      firebaseProject: connection.firebaseProject, firebaseSite: checked.connection.firebaseSite, sourceFile: patch.sourceFile,
       appliedChangeIds: patch.applied, pendingChangeIds: patch.pending};
   } catch (error) {
     try { await runAsync('git', ['worktree', 'remove', '--force', worktreePath],
@@ -316,9 +358,20 @@ async function publishPreview(workflow, connection, siteUrl) {
   if (!connection?.repositoryPath) throw new Error('Site güncelleme bağlantısı kurulmamış.');
   const checked = inspectConnection(connection);
   if (!checked.capabilities?.production) throw new Error(checked.publicationWarning || checked.error || 'Canlı yayın bağlantısı hazır değil.');
+  const authorized = await inspectFirebaseConnection(connection);
+  if (!authorized.capabilities?.production) throw new Error(authorized.publicationWarning || 'Firebase erişimi doğrulanmadı.');
   const execution = workflow.execution || {};
+  if (authorized.connection.firebaseProject !== connection.firebaseProject ||
+      (execution.firebaseProject && execution.firebaseProject !== connection.firebaseProject) ||
+      (execution.firebaseSite && execution.firebaseSite !== authorized.connection.firebaseSite)) {
+    throw new Error('Önizleme ile yayın hedefi farklı; yeni önizleme gerekli.');
+  }
   if (!execution.worktreePath || !execution.branch || !fs.existsSync(execution.worktreePath)) {
     throw new Error('Önizlemenin Git çalışma alanı bulunamadı.');
+  }
+  if (readFirebaseProject(execution.worktreePath) !== connection.firebaseProject ||
+      projectLayout(execution.worktreePath).firebaseSite !== authorized.connection.firebaseSite) {
+    throw new Error('Önizleme çalışma alanının Firebase hedefi değişmiş; yeni önizleme gerekli.');
   }
   const currentBranch = run('git', ['branch', '--show-current'], connection.repositoryPath);
   if (currentBranch !== connection.branch) {
@@ -332,7 +385,7 @@ async function publishPreview(workflow, connection, siteUrl) {
   await runAsync('git', ['push', 'origin', connection.branch], connection.repositoryPath,
       5 * 60_000);
   const publishCommand = firebaseInvocation(['deploy', '--only', 'hosting', '--project',
-    connection.firebaseProject, '--json', '--non-interactive']);
+    connection.firebaseProject, '--json', '--non-interactive', '--account', authorized.firebaseAccess.account]);
   await runAsync(publishCommand.command, publishCommand.args, execution.worktreePath,
       10 * 60_000);
   try {
@@ -346,5 +399,5 @@ async function publishPreview(workflow, connection, siteUrl) {
 }
 
 module.exports = {applyWorkflowChanges, buildProject, detectConnection, findPreviewUrl, firebaseInvocation,
-  inspectConnection, npmInvocation, projectLayout, targetFile, verifyBuiltPage,
+  inspectConnection, inspectFirebaseConnection, npmInvocation, projectLayout, targetFile, verifyBuiltPage,
   preparePreview, publicConnection, publishPreview};

@@ -132,7 +132,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.5'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.6'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -146,7 +146,19 @@ async function routeApi(request, response, requestUrl) {
   if (deploymentId && request.method === 'GET') {
     const project = getPrivateProject(deploymentId);
     if (!project) json(response, 404, {error: 'Proje bulunamadı.'});
-    else json(response, 200, deployment.inspectConnection(project.deployment));
+    else {
+      const checked = await deployment.inspectFirebaseConnection(project.deployment);
+      const current = getPrivateProject(deploymentId);
+      // An in-flight check must never restore a connection the user removed/replaced.
+      if (checked.firebaseAccess?.verified && current?.deployment &&
+          current.deployment.connectedAt === project.deployment.connectedAt &&
+          current.deployment.repositoryPath === project.deployment.repositoryPath &&
+          current.deployment.firebaseAccount !== checked.firebaseAccess.account) {
+        updateProject(deploymentId, {deployment: {...current.deployment,
+          firebaseAccount: checked.firebaseAccess.account}});
+      }
+      json(response, 200, checked);
+    }
     return true;
   }
   if (deploymentId && request.method === 'POST') {
@@ -157,9 +169,16 @@ async function routeApi(request, response, requestUrl) {
       if (connection.provider !== 'firebase_hosting') {
         throw new Error('Bu MVP şu anda yalnızca Firebase Hosting projelerini yayınlayabilir.');
       }
-      const updated = updateProject(project.id, {deployment: connection});
+      const checked = await deployment.inspectFirebaseConnection(connection);
+      if (!checked.firebaseAccess?.verified) throw new Error(checked.publicationWarning || 'Firebase erişimi doğrulanamadı.');
+      const current = getPrivateProject(project.id);
+      if (!current || JSON.stringify(current.deployment) !== JSON.stringify(project.deployment)) {
+        throw new Error('Bağlantı kontrol sırasında değiştirildi; yeniden dene.');
+      }
+      const updated = updateProject(project.id, {deployment: {...connection,
+        firebaseAccount: checked.firebaseAccess.account}});
       json(response, 200, {project: updated,
-        deployment: deployment.inspectConnection(connection)});
+        deployment: checked});
     } catch (error) { json(response, 400, {error: error.message}); }
     return true;
   }
