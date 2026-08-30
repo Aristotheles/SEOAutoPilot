@@ -219,7 +219,8 @@ async function preparePreview(workflow, connection) {
     }
     if (!url) throw new Error('Firebase önizleme adresi doğrulanamadı.');
     const revision = await runAsync('git', ['rev-parse', 'HEAD'], worktreePath, 30_000);
-    return {url, revision, branch, worktreePath, channel, sourceFile: patch.sourceFile,
+    return {url, previewPageUrl: new URL(workflow.targetPath, url).href,
+      revision, branch, worktreePath, channel, sourceFile: patch.sourceFile,
       appliedChangeIds: patch.applied, pendingChangeIds: patch.pending};
   } catch (error) {
     try { await runAsync('git', ['worktree', 'remove', '--force', worktreePath],

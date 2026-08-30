@@ -113,7 +113,7 @@ function runPublishJob(projectId, workflowId) {
 }
 async function routeApi(request, response, requestUrl) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.2'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.3'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
