@@ -10,6 +10,7 @@ const {demoReport} = require('./src/demo-report');
 const {createProject, getPrivateProject, listProjects, updateProject} =
   require('./src/project-store');
 const google = require('./src/google-search-console');
+const connections = require('./src/connection-management');
 const deployment = require('./src/deployment');
 const {mergeEditorialBacklog} = require('./src/seo-backlog');
 const {beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
@@ -112,8 +113,25 @@ function runPublishJob(projectId, workflowId) {
   });
 }
 async function routeApi(request, response, requestUrl) {
+  if (request.method === 'DELETE') {
+    const removal = requestUrl.pathname.match(/^\/api\/projects\/([^/]+)(?:\/(google|deployment))?$/u);
+    if (removal || requestUrl.pathname === '/api/google/config') {
+      try {
+        const {confirmation} = await readBody(request);
+        if (!removal) {
+          json(response, 200, connections.removeGoogleConfig(confirmation));
+        } else {
+          const id = decodeURIComponent(removal[1]);
+          if (removal[2] === 'google') json(response, 200, {project: connections.disconnectGoogle(id, confirmation)});
+          else if (removal[2] === 'deployment') json(response, 200, {project: connections.disconnectDeployment(id, confirmation)});
+          else { connections.removeProject(id, confirmation); json(response, 200, {removed: id}); }
+        }
+      } catch (error) { json(response, 400, {error: error.message}); }
+      return true;
+    }
+  }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.3'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.4'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -208,6 +226,7 @@ async function routeApi(request, response, requestUrl) {
     try {
       const projectId = decodeURIComponent(workflowPublish[1]);
       const workflowId = decodeURIComponent(workflowPublish[2]);
+      if (!getPrivateProject(projectId)?.deployment) throw new Error('Site güncelleme bağlantısı kurulmamış.');
       const workflow = updateWorkflow(projectId, workflowId, (current) => {
         const ready = current.status === 'FAILED' ? transition(current, 'retry') : current;
         return beginPublish(ready);
@@ -256,12 +275,15 @@ async function routeApi(request, response, requestUrl) {
     try {
       let project = getPrivateProject(syncId);
       if (!project) { json(response, 404, {error: 'Proje bulunamadı.'}); return true; }
+      const generation = google.generationFor(syncId);
       const token = await google.accessTokenFor(project);
+      google.assertGeneration(syncId, generation);
       if (token.updatedOauth) {
         updateProject(project.id, {oauth: token.updatedOauth});
         project = getPrivateProject(project.id);
       }
       const sites = await google.listSites(token.accessToken);
+      google.assertGeneration(syncId, generation);
       const selectedProperty = google.chooseProperty(project.siteUrl, sites,
           project.searchConsoleProperty);
       if (selectedProperty !== project.searchConsoleProperty) {
@@ -272,6 +294,8 @@ async function routeApi(request, response, requestUrl) {
       const start = new Date(end); start.setUTCDate(start.getUTCDate() - 27);
       const tables = await google.fetchPerformance(token.accessToken,
           project.searchConsoleProperty, dateValue(start), dateValue(end));
+      google.assertGeneration(syncId, generation);
+      project = getPrivateProject(syncId);
       const report = analyzeExport(tables,
           {clusters: project.id === 'lingodecoder' ? undefined : []});
       report.source = 'search_console_api';
@@ -290,8 +314,11 @@ async function oauthCallback(response, requestUrl) {
     if (requestUrl.searchParams.get('error')) throw new Error('Google erişim izni verilmedi.');
     const pending = google.consumeState(requestUrl.searchParams.get('state'));
     const token = await google.exchangeCode(requestUrl.searchParams.get('code'), pending.redirectUri);
+    google.assertGeneration(pending.projectId, pending.generation);
     const project = getPrivateProject(pending.projectId);
+    if (!project) throw new Error('Proje kaldırılmış.');
     const sites = await google.listSites(token.access_token);
+    google.assertGeneration(pending.projectId, pending.generation);
     const selectedProperty = google.chooseProperty(project.siteUrl, sites,
         project.searchConsoleProperty);
     updateProject(project.id, {oauth: {accessToken: token.access_token,
@@ -324,4 +351,4 @@ const server = http.createServer(async (request, response) => {
   } catch (error) { json(response, 500, {error: error.message}); }
 });
 
-server.listen(PORT, HOST, () => console.log(`SEOAutoPilot hazır: http://${HOST}:${PORT}`));
+server.listen(PORT, HOST, () => console.log(`SEOAutoPilot hazır: http://${HOST}:${server.address().port}`));

@@ -149,6 +149,13 @@ function renderPages() {
 }
 
 function renderDataState() {
+  $('#connectionManagementProject').textContent = state.project ? `Seçili proje: ${state.project.name} — ${state.project.siteUrl}` : '';
+  $$('[data-remove-connection]').forEach((button) => {
+    const kind = button.dataset.removeConnection;
+    button.disabled = kind === 'google-config' ? !state.googleStatus?.configured :
+      !state.project || (kind === 'google' ? state.project.connection !== 'connected' :
+        kind === 'deployment' ? !state.deploymentStatus?.connected : false);
+  });
   const live = state.mode === 'live' || state.mode === 'api';
   const lastSyncAt = state.project?.lastSyncAt;
   $('#dataStatus').classList.toggle('live', live);
@@ -269,13 +276,17 @@ function initials(name) {
   return words.slice(0, 2).map((word) => word[0]).join('').toLocaleUpperCase('tr');
 }
 function renderProjects() {
-  if (!state.project) return;
-  $('#currentProjectName').textContent = state.project.name;
-  $('#breadcrumbProject').textContent = state.project.name;
-  $('#projectInitials').textContent = initials(state.project.name);
+  $('.content').hidden = !state.project;
+  $('#emptyProjectPanel').hidden = Boolean(state.project);
+  $('#importButton').disabled = !state.project;
+  $$('.nav-item').forEach((button) => { button.disabled = !state.project; });
+  $('#currentProjectName').textContent = state.project?.name || 'Proje ekle';
+  $('#breadcrumbProject').textContent = state.project?.name || 'Proje yok';
+  $('#projectInitials').textContent = initials(state.project?.name || 'SEO');
   $('#projectList').innerHTML = state.projects.map((project) =>
-    `<button class="project-list-item ${project.id === state.project.id ? 'active' : ''}" data-project-id="${escapeHtml(project.id)}"><span class="avatar">${escapeHtml(initials(project.name))}</span><span class="project-list-copy"><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.siteUrl)}</small></span><span class="connection-mini ${project.connection}">${project.connection === 'connected' ? 'API bağlı' : project.hasReport ? 'CSV' : 'Yeni'}</span></button>`).join('');
+    `<div class="project-management-row"><button class="project-list-item ${project.id === state.project?.id ? 'active' : ''}" data-project-id="${escapeHtml(project.id)}"><span class="avatar">${escapeHtml(initials(project.name))}</span><span class="project-list-copy"><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.siteUrl)}</small></span><span class="connection-mini ${project.connection}">${project.connection === 'connected' ? 'API bağlı' : project.hasReport ? 'CSV' : 'Yeni'}</span></button><button class="danger-button" data-remove-project="${escapeHtml(project.id)}" aria-label="${escapeHtml(project.name)} projesini kaldır">Kaldır</button></div>`).join('') || '<p>Kayıtlı proje yok. Aşağıdan yeni proje ekle.</p>';
   $$('[data-project-id]').forEach((button) => button.addEventListener('click', () => selectProject(button.dataset.projectId)));
+  $$('[data-remove-project]').forEach((button) => button.addEventListener('click', () => removeConnection('project', button.dataset.removeProject)));
 }
 
 function setView(name) {
@@ -362,7 +373,7 @@ async function pollWorkflow(id) {
       'Yayınlama adımı tamamlandı.', workflow.status === 'FAILED' ? 'error' : 'success');
   } catch (exception) { showToast(exception.message, 'error'); }
 }
-async function loadProjects() {
+async function loadProjects(autoSync = true) {
   const [projectsResponse, googleResponse] = await Promise.all([
     fetch('/api/projects'), fetch('/api/google/status'),
   ]);
@@ -374,12 +385,19 @@ async function loadProjects() {
   state.project = state.projects.find((item) => item.id === requested) ||
     state.projects.find((item) => item.id === saved) || state.projects[0];
   renderProjects();
+  if (!state.project) {
+    state.report = null; state.workflows = []; state.deploymentStatus = null;
+    localStorage.removeItem('seo-autopilot-project');
+    $('#opportunityCount').textContent = '0'; $('#approvalCount').textContent = '0';
+    $('#dataStatus').textContent = 'Proje yok';
+    return;
+  }
   await loadReport();
   const oauth = new URLSearchParams(location.search).get('oauth');
   if (oauth === 'success') showToast('Google Search Console bağlantısı tamamlandı.');
   if (oauth === 'error') showToast('Google bağlantısı tamamlanamadı.', 'error');
   if (oauth) history.replaceState({}, '', '/');
-  await autoSyncOnOpen();
+  if (autoSync) await autoSyncOnOpen();
 }
 async function selectProject(id) {
   const project = state.projects.find((item) => item.id === id);
@@ -422,6 +440,43 @@ function openGoogleModal() {
   $('#googleModalCopy').textContent = configured ? `${state.project.name} projesini salt okunur Search Console izniyle bağla.` :
     'Google Cloud’da oluşturduğun Web application bilgilerini gir.';
   $('#googleModal').hidden = false;
+}
+
+async function removeConnection(kind, projectId = state.project?.id) {
+  if (state.removing) return;
+  const project = state.projects.find((item) => item.id === projectId);
+  if (kind !== 'google-config' && !project) return;
+  const name = project ? `${project.name} (${project.siteUrl})` : '';
+  const messages = {
+    deployment: `${name}\n\nSite/Git/Firebase bağlantısı kaldırılacak. Eski önizlemenin yayın yetkisi iptal edilir. Canlı site, kaynak klasörü ve GitHub deposu silinmez. Diğer projeler etkilenmez. Devam edilsin mi?`,
+    google: `${name}\n\nBu projenin Google tokenları silinecek ve otomatik senkronizasyonu duracak. Raporlar ve diğer projeler korunur. Google hesabındaki izin iptal edilmez. Devam edilsin mi?`,
+    'google-config': `DİKKAT: TÜM ${state.projects.length} PROJEYİ ETKİLER.\n\nOrtak Google OAuth istemci kimliği, gizli anahtar ve tüm projelerin Google tokenları bu uygulamadan silinecek. Ortam değişkenleriyle yapılandırılmış erişim de bu uygulamada devre dışı bırakılır. Yeniden kurulum gerekir. Google Cloud API/anahtarı silinmez; Google hesabındaki izin iptal edilmez. Siteler ve raporlar korunur. Devam edilsin mi?`,
+  };
+  if (kind === 'project') {
+    const answer = window.prompt(`${name}\n\nBu projenin SEOAutoPilot kaydı, raporları, görevleri ve tokenları kalıcı olarak silinir. Canlı site, kaynak kod, GitHub, CSV dosyaları ve diğer projeler korunur. Google hesabındaki izin iptal edilmez.\n\nOnaylamak için proje adını aynen yaz: ${project.name}`);
+    if (answer !== project.name) return;
+  } else if (!window.confirm(messages[kind])) return;
+  state.removing = true;
+  const base = `/api/projects/${encodeURIComponent(projectId)}`;
+  const endpoint = kind === 'google-config' ? '/api/google/config' :
+    kind === 'project' ? base : `${base}/${kind}`;
+  try {
+    const response = await fetch(endpoint, {method: 'DELETE',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
+        confirmation: kind === 'google-config' ? 'REMOVE_GOOGLE_CONFIG' : projectId})});
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    if (kind === 'google-config') {
+      $('#googleClientId').value = ''; $('#googleClientSecret').value = '';
+      state.projects.forEach((item) => sessionStorage.removeItem(`seo-auto-synced-${item.id}`));
+    } else sessionStorage.removeItem(`seo-auto-synced-${projectId}`);
+    closeWorkflowDetail(); $('#googleModal').hidden = true; $('#deploymentModal').hidden = true;
+    if (kind === 'project') { $('#projectModal').hidden = true; history.replaceState({}, '', '/'); }
+    await loadProjects(false);
+    showToast(kind === 'project' ? 'Proje SEOAutoPilot’tan kaldırıldı; site ve kaynak dosyaları korunuyor.' :
+      kind === 'google-config' ? 'Ortak OAuth bilgileri ve tüm yerel Google tokenları kaldırıldı.' :
+        kind === 'google' ? 'Bu projenin yerel Google bağlantısı kesildi.' : 'Site bağlantısı kaldırıldı; canlı site değiştirilmedi.');
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { state.removing = false; }
 }
 async function saveGoogleConfig() {
   const error = $('#googleError'); error.textContent = '';
@@ -502,6 +557,8 @@ $('#menuButton').addEventListener('click', () => $('#sidebar').classList.toggle(
 $('#importButton').addEventListener('click', () => { $('#importModal').hidden = false; $('#directoryInput').focus(); });
 $('#dataImportButton').addEventListener('click', () => $('#importButton').click());
 $('#projectMenuButton').addEventListener('click', () => { renderProjects(); $('#projectModal').hidden = false; });
+$$('[data-open-projects]').forEach((button) => button.addEventListener('click', () => $('#projectMenuButton').click()));
+$$('[data-remove-connection]').forEach((button) => button.addEventListener('click', () => removeConnection(button.dataset.removeConnection)));
 $('#createProjectButton').addEventListener('click', createNewProject);
 $('#refreshWorkflows').addEventListener('click', async () => { await loadWorkflows(); renderWorkflows(); showToast('Öncelikler güncellendi.'); });
 $$('[data-close-project]').forEach((button) => button.addEventListener('click', () => $('#projectModal').hidden = true));

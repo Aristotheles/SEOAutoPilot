@@ -83,5 +83,24 @@ function updateProject(id, updates) {
 }
 function getPrivateProject(id) { return getProject(id, {includeSecrets: true}); }
 
-module.exports = {createProject, getPrivateProject, getProject, listProjects,
-  publicProject, updateProject};
+function assertProjectIdle(project) {
+  if (!project) throw new Error('Proje bulunamadı.');
+  if ((project.workflows || []).some((item) => ['APPLYING', 'PUBLISHING'].includes(item.status))) {
+    throw new Error('Bu projede önizleme veya yayın işlemi sürüyor. Tamamlanmadan bağlantı/proje kaldırılamaz.');
+  }
+}
+function removeProject(id) {
+  const state = readState();
+  const project = state.projects.find((item) => item.id === id);
+  assertProjectIdle(project);
+  state.projects = state.projects.filter((item) => item.id !== id);
+  writeState(state);
+}
+function clearAllOAuth() {
+  const state = readState();
+  for (const project of state.projects) project.oauth = null;
+  writeState(state);
+}
+
+module.exports = {assertProjectIdle, clearAllOAuth, createProject, getPrivateProject,
+  getProject, listProjects, publicProject, removeProject, updateProject};

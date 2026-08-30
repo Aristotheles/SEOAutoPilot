@@ -89,6 +89,28 @@ Harici paket gerektirmez.
 
 ## Test
 
+## Bağlantı ve proje kaldırma
+
+Veri kaynakları → Bağlantıları yönet / kaldır bölümünde:
+
+- **Site bağlantısını kaldır:** Seçili projenin Git/Firebase eşleştirmesini keser,
+  önceki önizlemenin yayın yetkisini iptal eder. Kaynak klasörü, GitHub, Firebase
+  sitesi ve önizleme dosyaları silinmez. Aktif yayın/derleme bitmeden kullanılamaz.
+- **Google bağlantısını kes:** Yalnız seçili projenin yerel tokenlarını siler.
+  Devam eden OAuth/senkronizasyon istekleri bağlantıyı geri getiremez.
+- **Ortak Google OAuth bilgilerini sil:** TÜM projelerin yerel tokenlarını ve
+  kayıtlı OAuth bilgilerini kaldırır. Ortam değişkenlerinden gelen yapılandırmayı
+  da bu uygulamada kalıcı olarak devre dışı bırakır; yeniden kurulum gerekir.
+- **Projeyi kaldır:** Adını yazarak onayladıktan sonra uygulamadaki proje kaydı,
+  raporları, görevleri ve tokenları kalıcı silinir. Gerçek site, kullanıcı kaynak
+  dosyaları ve diğer projeler korunur. Projeler listesinden de kullanılabilir.
+
+Bu işlemler Google Cloud'daki API/istemciyi silmez ve Google hesabındaki uygulama
+iznini iptal etmez. Bunun için Google hesap bağlantıları/Cloud Console kullanılmalıdır.
+Kaldırma uçları DELETE isteği ve hedefe özel açık onay gerektirir.
+
+## Otomatik testler
+
 ```powershell
 npm test
 ```

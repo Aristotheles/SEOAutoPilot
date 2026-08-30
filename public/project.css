@@ -47,3 +47,14 @@
 @media(max-width:520px){.workflow-summary{grid-template-columns:1fr}.automation-policy{align-items:flex-start}.automation-policy>span{display:none}.workflow-card{grid-template-columns:7px 1fr}.workflow-score{display:none}.workflow-next{grid-column:2}.workflow-actions{justify-content:flex-start}}
 .workflow-detail-modal .priority-label,.workflow-detail-modal .workflow-status{font-size:10px}.workflow-detail-head>div>p{font-size:13px}.detail-target small{font-size:10px}.detail-target a{font-size:12px}.detail-target p{font-size:11px}.workflow-detail-modal .detail-section h3{font-size:15px}.detail-section-title p{font-size:11px}.change-area{font-size:10px}.change-proposed{font-size:13px}.change-rationale{font-size:11px!important}.evidence-grid small{font-size:10px}.query-focus>small{font-size:10px}.workflow-detail-modal .query-pill{font-size:11px}.detail-step{font-size:11px}.detail-step small{font-size:10px}.timeline-item strong{font-size:11px}.timeline-item small{font-size:10px}.workflow-detail-modal .approval-box{font-size:12px}.connection-warning p,.apply-progress p{font-size:11px}.workflow-detail-modal .outline-button,.workflow-detail-modal .reject-button{font-size:11px}
 .workflow-summary small{font-size:11px}.automation-policy strong{font-size:13px}.automation-policy p{font-size:11px}.automation-policy>span{font-size:11px}.workflow-card .priority-label,.workflow-card .workflow-status{font-size:10px}.workflow-card h3{font-size:16px}.workflow-card p{font-size:11px}.workflow-score small{font-size:10px}.workflow-next small{font-size:10px}.workflow-next strong{font-size:12px}.workflow-actions .outline-button{font-size:11px}
+.connection-management{margin-bottom:20px;padding:22px;border:1px solid #f1c3bd}
+.connection-management h2{font-size:20px;margin:0 0 10px}.connection-management p{font-size:14px;line-height:1.65;color:#64748b}
+.connection-removal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.connection-removal-grid article{padding:16px;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;align-items:flex-start}
+.connection-removal-grid h3{font-size:16px;margin:0}.connection-removal-grid .danger-button{margin-top:auto}
+.danger-button{font-family:inherit;font-size:14px;font-weight:700;padding:10px 14px;border:1px solid #efb4ae;border-radius:9px;background:#fff5f4;color:#a9362a;cursor:pointer}
+.danger-button:hover{background:#ffe8e5}.danger-button:disabled{opacity:.5;cursor:not-allowed}
+.project-management-row{display:flex;align-items:center;gap:10px}.project-management-row .project-list-item{flex:1;min-width:0}
+.empty-project-panel{margin:24px;padding:24px}.empty-project-panel button{margin:8px}
+.content[hidden],.empty-project-panel[hidden]{display:none!important}
+@media(max-width:700px){.connection-removal-grid{grid-template-columns:1fr}.connection-management{padding:16px}}

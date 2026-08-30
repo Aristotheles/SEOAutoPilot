@@ -12,12 +12,29 @@ const CONFIG_FILE = path.join(process.env.SEO_AUTOPILOT_DATA_DIR ?
   path.resolve(process.env.SEO_AUTOPILOT_DATA_DIR) : path.join(__dirname, '..', 'data'),
   'google-oauth.json');
 const pendingStates = new Map();
+let configGeneration = 0;
+const projectGenerations = new Map();
+function generationFor(projectId) {
+  return `${configGeneration}:${projectGenerations.get(projectId) || 0}`;
+}
+function invalidateProject(projectId) {
+  projectGenerations.set(projectId, (projectGenerations.get(projectId) || 0) + 1);
+  for (const [key, value] of pendingStates) {
+    if (value.projectId === projectId) pendingStates.delete(key);
+  }
+}
+function assertGeneration(projectId, generation) {
+  if (generation !== generationFor(projectId)) {
+    throw new Error('Google bağlantısı kaldırıldı veya değişti; eski istek iptal edildi.');
+  }
+}
 
 function readConfig() {
   let fileConfig = {};
   if (fs.existsSync(CONFIG_FILE)) {
     try { fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (_) { fileConfig = {}; }
   }
+  if (fileConfig.disabled) return {clientId: '', clientSecret: ''};
   return {clientId: process.env.GOOGLE_CLIENT_ID || fileConfig.clientId || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || fileConfig.clientSecret || ''};
 }
@@ -34,11 +51,19 @@ function configStatus() {
   return {configured: Boolean(config.clientId && config.clientSecret), scope: SCOPE,
     redirectUri: 'http://127.0.0.1:4173/oauth/google/callback'};
 }
+function removeConfig() {
+  // A persistent tombstone also disables environment-provided credentials after restart.
+  fs.mkdirSync(path.dirname(CONFIG_FILE), {recursive: true});
+  fs.writeFileSync(CONFIG_FILE, '{"disabled":true}\n', {encoding: 'utf8', mode: 0o600});
+  configGeneration += 1;
+  pendingStates.clear();
+}
 function createAuthorizationUrl(projectId, redirectUri) {
   const config = readConfig();
   if (!config.clientId || !config.clientSecret) throw new Error('Google OAuth henüz yapılandırılmadı.');
   const state = crypto.randomBytes(24).toString('base64url');
-  pendingStates.set(state, {projectId, redirectUri, expiresAt: Date.now() + 10 * 60_000});
+  pendingStates.set(state, {projectId, redirectUri, generation: generationFor(projectId),
+    expiresAt: Date.now() + 10 * 60_000});
   const url = new URL(AUTH_ENDPOINT);
   url.search = new URLSearchParams({client_id: config.clientId, redirect_uri: redirectUri,
     response_type: 'code', scope: SCOPE, access_type: 'offline', prompt: 'consent',
@@ -137,6 +162,6 @@ async function fetchPerformance(accessToken, siteUrl, startDate, endDate) {
     countries: asTable(['Ülke', 'Tıklamalar', 'Gösterimler', 'TO', 'Konum'], results[4].rows)};
 }
 
-module.exports = {accessTokenFor, chooseProperty, configStatus, consumeState,
+module.exports = {accessTokenFor, assertGeneration, chooseProperty, configStatus, consumeState,
   createAuthorizationUrl, exchangeCode, fetchPerformance, hostnameForProperty,
-  listSites, readConfig, saveConfig, SCOPE};
+  generationFor, invalidateProject, listSites, readConfig, removeConfig, saveConfig, SCOPE};

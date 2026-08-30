@@ -80,6 +80,7 @@
         </div>
       </header>
 
+      <section class="panel empty-project-panel" id="emptyProjectPanel" hidden><h1>Henüz proje yok</h1><p>Yeni bir proje ekleyebilirsin. Kaldırdığın sitelerin kendisi ve kaynak dosyaları silinmez.</p><button class="primary-button" data-open-projects>Proje ekle</button><button class="danger-button" data-remove-connection="google-config">Ortak Google OAuth bilgilerini sil</button></section>
       <div class="content">
         <section class="view active" id="view-overview">
           <div class="page-heading">
@@ -169,6 +170,17 @@
 
         <section class="view" id="view-data">
           <div class="page-heading compact"><div><p class="eyebrow">VERİ KAYNAKLARI</p><h1>Veri ve uygulama bağlantıları</h1><p>Search Console otomatik veri getirir; site bağlantısı ise onaylanan değişiklikleri kontrollü biçimde yayınlar.</p></div></div>
+          <section class="panel connection-management" aria-labelledby="connectionManagementTitle">
+            <h2 id="connectionManagementTitle">Bağlantıları yönet / kaldır</h2>
+            <p id="connectionManagementProject"></p>
+            <div class="connection-removal-grid">
+              <article><h3>Site / Git / Firebase</h3><p>Yalnız seçili projenin yayın bağlantısını keser. Canlı site, kaynak klasörü ve GitHub deposu silinmez. Önceki önizleme için yeniden hazırlık gerekir.</p><button class="danger-button" data-remove-connection="deployment">Site bağlantısını kaldır</button></article>
+              <article><h3>Google Search Console</h3><p>Yalnız seçili projenin kayıtlı erişim tokenlarını kaldırır ve otomatik senkronizasyonunu durdurur. Raporlar ve diğer projeler korunur.</p><button class="danger-button" data-remove-connection="google">Google bağlantısını kes</button></article>
+              <article><h3>Ortak Google OAuth bilgileri</h3><p>TÜM projeleri etkiler: kayıtlı istemci kimliği, gizli anahtar ve bütün Google tokenları kaldırılır. Google Cloud'daki API/anahtar silinmez; burada kullanım devre dışı kalır.</p><button class="danger-button" data-remove-connection="google-config">Ortak Google OAuth bilgilerini sil</button></article>
+              <article><h3>Seçili projeyi kaldır</h3><p>Bu projenin uygulamadaki kaydı, raporları, görevleri ve tokenları silinir; geri alınamaz. Gerçek site, CSV dosyaları, kaynak kod ve diğer projeler silinmez.</p><button class="danger-button" data-remove-connection="project">Projeyi kaldır</button></article>
+            </div>
+            <p>Bağlantıyı kesmek Google hesabındaki izni iptal etmez. İzni tümüyle kaldırmak istersen <a href="https://myaccount.google.com/connections" target="_blank" rel="noopener noreferrer">Google hesap bağlantılarını</a> kullanabilirsin.</p>
+          </section>
           <div class="data-grid">
             <article class="panel source-card" id="googleSourceCard"><div class="source-logo google">G</div><div><span class="card-kicker">ÖNERİLEN KAYNAK</span><h2>Google Search Console API</h2><p id="googleSourceText">Otomatik veri akışı için OAuth bağlantısını yapılandır.</p><small class="last-sync-label" id="lastSyncLabel">Son güncelleme: Henüz yok</small></div><button class="outline-button source-action" id="googleAction">API'yi kur</button></article>
             <article class="panel source-card connected"><div class="source-logo csv">CSV</div><div><span class="card-kicker">YEDEK VERİ KAYNAĞI</span><h2>Search Console CSV</h2><p id="sourcePath">Demo veri kullanılıyor</p></div><button class="outline-button source-action" id="dataImportButton">CSV içe aktar</button></article>
