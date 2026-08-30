@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const {normalizeOpportunity} = require('./page-label');
 
 const STATUS = Object.freeze({
   discovered: 'DISCOVERED', awaitingApproval: 'AWAITING_APPROVAL',
@@ -132,10 +133,19 @@ function migratePrevious(previous, requiresApproval, now) {
 }
 
 function createWorkflow(projectId, opportunity, previousValue) {
+  opportunity = normalizeOpportunity(opportunity);
   const priority = priorityFor(opportunity);
   const requiresApproval = opportunity.action !== 'HOLD';
   const now = new Date().toISOString();
-  const previous = migratePrevious(previousValue, requiresApproval, now);
+  let previous = migratePrevious(previousValue, requiresApproval, now);
+  if (previous && /\.html?$/iu.test(previous.title) && previous.title !== opportunity.label) {
+    // Never rewrite in-flight or published execution history behind the user's back.
+    if ([STATUS.applying, STATUS.publishing].includes(previous.status) || previous.execution?.appliedAt) return previous;
+    previous = {...previous, status: requiresApproval ? STATUS.awaitingApproval : STATUS.discovered,
+      approvedAt: null, execution: null,
+      events: [...(previous.events || []), {type: 'LABEL_REPAIRED', actor: 'system', at: now,
+        label: 'Dosya uzantısı başlık ve taslaklardan kaldırıldı; hedef URL korundu.'}]};
+  }
   return {id: workflowId(projectId, opportunity), projectId,
     opportunityId: opportunity.clusterId, title: opportunity.label,
     action: opportunity.action, priority, requiresApproval,

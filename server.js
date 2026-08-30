@@ -6,6 +6,7 @@ const path = require('node:path');
 const {URL} = require('node:url');
 const {loadExport} = require('./src/importer');
 const {analyzeExport} = require('./src/engine');
+const {normalizeReport} = require('./src/page-label');
 const {demoReport} = require('./src/demo-report');
 const {createProject, getPrivateProject, listProjects, updateProject} =
   require('./src/project-store');
@@ -49,7 +50,7 @@ function emptyReport(project) {
     opportunities: [], unclusteredQueries: []};
 }
 function projectReport(project) {
-  if (project.lastSyncReport) return {report: project.lastSyncReport, directory: '', mode: 'api'};
+  if (project.lastSyncReport) return {report: normalizeReport(project.lastSyncReport), directory: '', mode: 'api'};
   if (project.csvDirectory) {
     const loaded = loadExport(project.csvDirectory,
         {clusters: project.id === 'lingodecoder' ? undefined : []});

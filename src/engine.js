@@ -1,5 +1,7 @@
 'use strict';
 
+const {pageLabel} = require('./page-label');
+
 const ACTION = Object.freeze({
   hold: 'HOLD',
   updateExisting: 'UPDATE_EXISTING',
@@ -166,9 +168,7 @@ function genericPageOpportunities(pages, activeDays) {
       .slice(0, 12).map((page, index) => {
         let pathname = page.key;
         try { pathname = new URL(page.key).pathname; } catch (_) { /* keep original */ }
-        const segment = pathname.split('/').filter(Boolean).pop() || 'Ana sayfa';
-        const label = segment.replace(/[-_]+/gu, ' ').replace(/\b\p{L}/gu,
-            (letter) => letter.toLocaleUpperCase('tr'));
+        const label = pageLabel(pathname);
         let recommendation;
         if (page.impressions < 10) recommendation = {action: ACTION.hold,
           reason: 'Karar vermek için en az 10 gösterim bekleniyor.'};
