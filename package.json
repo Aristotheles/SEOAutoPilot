@@ -1,6 +1,6 @@
 {
   "name": "seo-autopilot",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Human-approved Search Console opportunity engine for LingoDecoder.",
   "type": "commonjs",

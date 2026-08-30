@@ -220,7 +220,7 @@ function workflowActionPanel(workflow, targetUrl) {
   if (['PUBLISHED', 'APPLIED'].includes(workflow.status)) return `<div class="apply-progress done"><i>✓</i><div><strong>Sayfa canlıya yayınlandı</strong><p>${escapeHtml(formatDateTime(workflow.execution?.appliedAt))} tarihinde yayın adresi doğrulandı.</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution?.url || targetUrl)}" target="_blank" rel="noopener">Yeni sayfayı gör ↗</a><button class="modal-submit" data-workflow-action="start_monitoring" data-workflow-id="${escapeHtml(workflow.id)}">İzlemeyi başlat <span>→</span></button></div>`;
   if (workflow.status === 'MONITORING') return `<div class="apply-progress monitoring"><i>◷</i><div><strong>14/28 günlük ölçüm sürüyor</strong><p>Başlangıç: ${escapeHtml(formatDateTime(workflow.monitoringStartedAt))}. Sistem süre dolmadan sonucu tamamlandı olarak işaretlemez.</p></div></div>${workflow.execution?.url ? `<div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution.url)}" target="_blank" rel="noopener">Yayınlanan sayfayı gör ↗</a></div>` : ''}`;
   if (workflow.status === 'COMPLETED') return `<div class="apply-progress done"><i>✓</i><div><strong>Ölçüm tamamlandı</strong><p>${workflow.result ? escapeHtml(JSON.stringify(workflow.result)) : 'Sonuç kaydı oluşturuldu; ayrıntılı karşılaştırma bilgi tabanında saklanacak.'}</p></div></div>`;
-  if (workflow.status === 'FAILED') return `<div class="connection-warning error"><strong>Güncelleme tamamlanamadı</strong><p>${escapeHtml(workflow.execution?.error || 'Yayınlama kanalı bilinmeyen bir hata döndürdü.')}</p></div><div class="detail-actions"><button class="outline-button" data-workflow-action="retry" data-workflow-id="${escapeHtml(workflow.id)}">Sorunu düzelttim, yeniden hazırla →</button></div>`;
+  if (workflow.status === 'FAILED') { const retryAction = workflow.execution?.failedPhase === 'PUBLISHING' ? 'publish' : 'preview'; return `<div class="connection-warning error"><strong>Güncelleme tamamlanamadı</strong><p>${escapeHtml(workflow.execution?.error || 'Yayınlama kanalı bilinmeyen bir hata döndürdü.')}</p></div><div class="detail-actions"><button class="outline-button" data-workflow-retry="${escapeHtml(workflow.id)}" data-retry-action="${retryAction}">${retryAction === 'publish' ? 'Canlı yayını' : 'Önizlemeyi'} yeniden dene →</button></div>`; }
   if (workflow.status === 'REJECTED') return '<div class="approval-box"><strong>Öneri reddedildi</strong><br>Site üzerinde değişiklik yapılmadı. Yeni Search Console verisi geldiğinde fırsat yeniden değerlendirilebilir.</div>';
   return '<div class="approval-box"><strong>Otomatik veri izleme</strong><br>Yeterli sinyal oluşana kadar site üzerinde değişiklik yapılmayacak.</div>';
 }
@@ -239,6 +239,8 @@ function openWorkflowDetail(id) {
         button.dataset.workflowAction)));
   $('[data-workflow-preview]', $('#workflowDetailContent'))?.addEventListener('click', () =>
     runDeploymentAction(workflow.id, 'preview'));
+  $('[data-workflow-retry]', $('#workflowDetailContent'))?.addEventListener('click', (event) =>
+    runDeploymentAction(workflow.id, event.currentTarget.dataset.retryAction));
   $('[data-workflow-publish]', $('#workflowDetailContent'))?.addEventListener('click', () => {
     if (window.confirm('Önizlemeyi kontrol ettin mi? Bu işlem değişikliği Git dalına kaydedip canlı Firebase Hosting sitesine yayınlayacak.')) {
       runDeploymentAction(workflow.id, 'publish');

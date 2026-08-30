@@ -113,7 +113,7 @@ function runPublishJob(projectId, workflowId) {
 }
 async function routeApi(request, response, requestUrl) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.1'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -193,8 +193,10 @@ async function routeApi(request, response, requestUrl) {
       const workflowId = decodeURIComponent(workflowPreview[2]);
       const project = getPrivateProject(projectId);
       if (!project?.deployment) throw new Error('Site güncelleme bağlantısı kurulmamış.');
-      const workflow = updateWorkflow(projectId, workflowId, (current) =>
-        beginExecution(current, 'local_git_firebase_preview'));
+      const workflow = updateWorkflow(projectId, workflowId, (current) => {
+        const ready = current.status === 'FAILED' ? transition(current, 'retry') : current;
+        return beginExecution(ready, 'local_git_firebase_preview');
+      });
       runPreviewJob(projectId, workflowId);
       json(response, 202, {workflow});
     } catch (error) { json(response, 400, {error: error.message}); }
@@ -206,8 +208,10 @@ async function routeApi(request, response, requestUrl) {
     try {
       const projectId = decodeURIComponent(workflowPublish[1]);
       const workflowId = decodeURIComponent(workflowPublish[2]);
-      const workflow = updateWorkflow(projectId, workflowId, (current) =>
-        beginPublish(current));
+      const workflow = updateWorkflow(projectId, workflowId, (current) => {
+        const ready = current.status === 'FAILED' ? transition(current, 'retry') : current;
+        return beginPublish(ready);
+      });
       runPublishJob(projectId, workflowId);
       json(response, 202, {workflow});
     } catch (error) { json(response, 400, {error: error.message}); }

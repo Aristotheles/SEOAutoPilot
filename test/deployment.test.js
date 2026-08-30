@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
-const {applyWorkflowChanges, detectConnection, inspectConnection} = require('../src/deployment');
+const {applyWorkflowChanges, detectConnection, firebaseInvocation,
+  inspectConnection} = require('../src/deployment');
 
 function fixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'seo-deployment-'));
@@ -53,4 +54,14 @@ test('applies only exact approved HTML fields and reports pending editorial work
   assert.match(html, /content="Yeni açıklama"/u);
   assert.match(html, /<h1>Yeni H1<\/h1>/u);
   assert.deepEqual(result.pending, ['sections']);
+});
+
+test('invokes Firebase through its Node entry point on Windows', () => {
+  const invocation = firebaseInvocation(['--version']);
+  if (process.platform === 'win32') {
+    assert.equal(invocation.command, process.execPath);
+    assert.match(invocation.args[0], /firebase-tools[\\/]lib[\\/]bin[\\/]firebase\.js$/u);
+  } else {
+    assert.equal(invocation.command, 'firebase');
+  }
 });

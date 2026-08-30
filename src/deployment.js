@@ -4,7 +4,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const {execFile} = require('node:child_process');
-const firebaseExecutable = process.platform === 'win32' ? 'firebase.cmd' : 'firebase';
+
+function firebaseInvocation(args) {
+  if (process.platform !== 'win32') return {command: 'firebase', args};
+  const pathDirectories = String(process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  const candidates = [];
+  if (process.env.APPDATA) candidates.push(path.join(process.env.APPDATA, 'npm',
+      'node_modules', 'firebase-tools', 'lib', 'bin', 'firebase.js'));
+  for (const directory of pathDirectories) {
+    candidates.push(path.join(directory, 'node_modules', 'firebase-tools', 'lib', 'bin',
+        'firebase.js'));
+  }
+  const cliPath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!cliPath) throw new Error('Firebase CLI Node giriş dosyası bulunamadı.');
+  return {command: process.execPath, args: [cliPath, ...args]};
+}
 
 function run(command, args, cwd, timeout = 15_000) {
   return execFileSync(command, args, {cwd, encoding: 'utf8', timeout,
@@ -181,9 +195,11 @@ async function preparePreview(workflow, connection) {
       throw new Error('Bu Flutter projesi için güvenli release build betiği tanımlanmamış.');
     }
     const channel = `seo-${workflow.id.slice(0, 12)}`;
-    const output = await runAsync(firebaseExecutable, ['hosting:channel:deploy', channel,
+    const previewCommand = firebaseInvocation(['hosting:channel:deploy', channel,
       '--expires', '7d', '--project', connection.firebaseProject, '--json',
-      '--non-interactive'], worktreePath, 10 * 60_000);
+      '--non-interactive']);
+    const output = await runAsync(previewCommand.command, previewCommand.args, worktreePath,
+        10 * 60_000);
     let parsed;
     try { parsed = JSON.parse(output); } catch (_) { parsed = output; }
     const url = findPreviewUrl(parsed);
@@ -216,9 +232,10 @@ async function publishPreview(workflow, connection, siteUrl) {
       60_000);
   await runAsync('git', ['push', 'origin', connection.branch], connection.repositoryPath,
       5 * 60_000);
-  await runAsync(firebaseExecutable, ['deploy', '--only', 'hosting', '--project',
-    connection.firebaseProject, '--json', '--non-interactive'], execution.worktreePath,
-  10 * 60_000);
+  const publishCommand = firebaseInvocation(['deploy', '--only', 'hosting', '--project',
+    connection.firebaseProject, '--json', '--non-interactive']);
+  await runAsync(publishCommand.command, publishCommand.args, execution.worktreePath,
+      10 * 60_000);
   try {
     await runAsync('git', ['worktree', 'remove', '--force', execution.worktreePath],
         connection.repositoryPath, 60_000);
@@ -229,5 +246,5 @@ async function publishPreview(workflow, connection, siteUrl) {
     revision: execution.revision, pushedBranch: connection.branch};
 }
 
-module.exports = {applyWorkflowChanges, detectConnection, inspectConnection,
+module.exports = {applyWorkflowChanges, detectConnection, firebaseInvocation, inspectConnection,
   preparePreview, publicConnection, publishPreview};
