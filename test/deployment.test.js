@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
-const {applyWorkflowChanges, detectConnection, firebaseInvocation,
+const {applyWorkflowChanges, detectConnection, findPreviewUrl, firebaseInvocation,
   inspectConnection} = require('../src/deployment');
 
 function fixture() {
@@ -64,4 +64,10 @@ test('invokes Firebase through its Node entry point on Windows', () => {
   } else {
     assert.equal(invocation.command, 'firebase');
   }
+});
+
+test('extracts a Firebase preview URL from noisy CLI output', () => {
+  const output = 'Deploy complete!\n{"status":"success","result":{"url":' +
+    '"https://example--seo-task-abcd.web.app"}}\nDone.';
+  assert.equal(findPreviewUrl(output), 'https://example--seo-task-abcd.web.app');
 });

@@ -151,8 +151,10 @@ function applyWorkflowChanges(workflow, root) {
 }
 
 function findPreviewUrl(value) {
-  if (typeof value === 'string' && /^https:\/\//u.test(value) &&
-      /(?:web\.app|firebaseapp\.com)/u.test(value)) return value;
+  if (typeof value === 'string') {
+    const match = value.match(/https:\/\/[a-z0-9.-]+(?:web\.app|firebaseapp\.com)(?:\/[^\s"'<>]*)?/iu);
+    if (match) return match[0];
+  }
   if (Array.isArray(value)) {
     for (const item of value) { const found = findPreviewUrl(item); if (found) return found; }
   }
@@ -202,7 +204,19 @@ async function preparePreview(workflow, connection) {
         10 * 60_000);
     let parsed;
     try { parsed = JSON.parse(output); } catch (_) { parsed = output; }
-    const url = findPreviewUrl(parsed);
+    let url = findPreviewUrl(parsed);
+    if (!url) {
+      const listCommand = firebaseInvocation(['hosting:channel:list', '--project',
+        connection.firebaseProject, '--json', '--non-interactive']);
+      const listOutput = await runAsync(listCommand.command, listCommand.args, worktreePath,
+          2 * 60_000);
+      let listValue;
+      try { listValue = JSON.parse(listOutput); } catch (_) { listValue = listOutput; }
+      const channels = listValue?.result?.channels || [];
+      const exactChannel = channels.find((item) => String(item.name || '').endsWith(
+          `/channels/${channel}`));
+      url = exactChannel?.url || findPreviewUrl(listValue);
+    }
     if (!url) throw new Error('Firebase önizleme adresi doğrulanamadı.');
     const revision = await runAsync('git', ['rev-parse', 'HEAD'], worktreePath, 30_000);
     return {url, revision, branch, worktreePath, channel, sourceFile: patch.sourceFile,
@@ -246,5 +260,6 @@ async function publishPreview(workflow, connection, siteUrl) {
     revision: execution.revision, pushedBranch: connection.branch};
 }
 
-module.exports = {applyWorkflowChanges, detectConnection, firebaseInvocation, inspectConnection,
+module.exports = {applyWorkflowChanges, detectConnection, findPreviewUrl, firebaseInvocation,
+  inspectConnection,
   preparePreview, publicConnection, publishPreview};
