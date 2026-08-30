@@ -30,3 +30,14 @@ test('never exposes OAuth tokens in public project objects', () => {
   assert.equal(publicValue.connection, 'connected');
   assert.equal(privateValue.oauth.refreshToken, 'private-token');
 });
+
+test('stores deployment connections per project without exposing the requested alias', () => {
+  const project = store.listProjects()[1];
+  store.updateProject(project.id, {deployment: {source: 'local_git',
+    requestedPath: 'C:\\Alias', repositoryPath: 'C:\\RealRepo', branch: 'main',
+    provider: 'firebase_hosting'}});
+  const publicValue = store.getProject(project.id);
+  assert.equal(publicValue.deployment.repositoryPath, 'C:\\RealRepo');
+  assert.equal(publicValue.deployment.requestedPath, undefined);
+  assert.equal(store.getProject('lingodecoder').deployment, null);
+});

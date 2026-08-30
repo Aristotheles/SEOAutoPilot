@@ -4,7 +4,8 @@ const crypto = require('node:crypto');
 
 const STATUS = Object.freeze({
   discovered: 'DISCOVERED', awaitingApproval: 'AWAITING_APPROVAL',
-  approved: 'APPROVED', applying: 'APPLYING', applied: 'APPLIED',
+  approved: 'APPROVED', applying: 'APPLYING', previewReady: 'PREVIEW_READY',
+  publishing: 'PUBLISHING', published: 'PUBLISHED', applied: 'APPLIED',
   monitoring: 'MONITORING', completed: 'COMPLETED', rejected: 'REJECTED',
   failed: 'FAILED',
 });
@@ -170,7 +171,16 @@ function transition(workflow, action, options = {}) {
     return {...workflow, status: STATUS.rejected, updatedAt: now,
       events: addEvent(workflow, 'REJECTED', 'Öneri kullanıcı tarafından reddedildi', now)};
   }
-  if (action === 'start_monitoring' && workflow.status === STATUS.applied &&
+  if (action === 'retry' && workflow.status === STATUS.failed) {
+    const publishRetry = workflow.execution?.failedPhase === STATUS.publishing &&
+      workflow.execution?.previewUrl;
+    return {...workflow, status: publishRetry ? STATUS.previewReady : STATUS.approved,
+      updatedAt: now, execution: publishRetry ? {...workflow.execution, state: 'preview_ready',
+        error: null} : null,
+      events: addEvent(workflow, 'RETRY_READY', publishRetry ?
+        'Canlı yayın yeniden denenmeye hazır' : 'Önizleme yeniden hazırlanmaya hazır', now)};
+  }
+  if (action === 'start_monitoring' && workflow.status === STATUS.published &&
       workflow.execution?.appliedAt) {
     return {...workflow, status: STATUS.monitoring, monitoringStartedAt: now, updatedAt: now,
       events: addEvent(workflow, 'MONITORING', '14/28 günlük sonuç izleme başladı', now, 'system')};
@@ -204,19 +214,40 @@ function finishExecution(workflow, output, now = new Date().toISOString()) {
   if (workflow.status !== STATUS.applying || workflow.execution?.state !== 'running') {
     throw new Error('Tamamlanmayı bekleyen bir güncelleme bulunmuyor.');
   }
-  return {...workflow, status: STATUS.applied, updatedAt: now,
-    execution: {...workflow.execution, state: 'applied', appliedAt: now,
-      url: output.url, revision: output.revision || null},
-    events: addEvent(workflow, 'APPLIED', 'Sayfa güncellendi ve yayın adresi doğrulandı', now,
+  return {...workflow, status: STATUS.previewReady, updatedAt: now,
+    execution: {...workflow.execution, ...output, state: 'preview_ready', previewAt: now,
+      previewUrl: output.url, url: null, appliedAt: null, revision: output.revision || null},
+    events: addEvent(workflow, 'PREVIEW_READY', 'Firebase önizlemesi hazırlandı', now,
+        'system')};
+}
+
+function beginPublish(workflow, now = new Date().toISOString()) {
+  if (workflow.status !== STATUS.previewReady || !workflow.execution?.previewUrl) {
+    throw new Error('Canlı yayın öncesinde doğrulanmış bir önizleme gerekli.');
+  }
+  return {...workflow, status: STATUS.publishing, updatedAt: now,
+    execution: {...workflow.execution, state: 'publishing', publishStartedAt: now},
+    events: addEvent(workflow, 'PUBLISHING', 'İkinci onay alındı; canlı yayın başladı', now)};
+}
+
+function finishPublish(workflow, output, now = new Date().toISOString()) {
+  if (workflow.status !== STATUS.publishing) {
+    throw new Error('Canlı yayın aşamasında bir görev bulunmuyor.');
+  }
+  return {...workflow, status: STATUS.published, updatedAt: now,
+    execution: {...workflow.execution, ...output, state: 'published', appliedAt: now,
+      url: output.url},
+    events: addEvent(workflow, 'PUBLISHED', 'Değişiklik canlı siteye yayınlandı', now,
         'system')};
 }
 
 function failExecution(workflow, error, now = new Date().toISOString()) {
-  if (workflow.status !== STATUS.applying) return workflow;
+  if (![STATUS.applying, STATUS.publishing].includes(workflow.status)) return workflow;
   return {...workflow, status: STATUS.failed, updatedAt: now,
-    execution: {...workflow.execution, state: 'failed', error: String(error)},
+    execution: {...workflow.execution, state: 'failed', failedPhase: workflow.status,
+      error: String(error)},
     events: addEvent(workflow, 'FAILED', 'Güncelleme tamamlanamadı', now, 'system')};
 }
 
-module.exports = {STATUS, beginExecution, briefFor, changesFor, failExecution,
-  finishExecution, priorityFor, stepsFor, syncWorkflows, transition};
+module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, failExecution,
+  finishExecution, finishPublish, priorityFor, stepsFor, syncWorkflows, transition};

@@ -1,7 +1,7 @@
 'use strict';
 
 const state = {report: null, mode: 'demo', directory: '', filter: 'all',
-  projects: [], project: null, googleStatus: null, workflows: []};
+  projects: [], project: null, googleStatus: null, workflows: [], deploymentStatus: null};
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const format = new Intl.NumberFormat('tr-TR');
@@ -17,11 +17,15 @@ const viewLabels = {overview: 'Genel bakış', opportunities: 'Fırsatlar',
   workflows: 'Onay kuyruğu', queries: 'Sorgular', pages: 'Sayfalar',
   data: 'Veri kaynakları'};
 const workflowMeta = {
+  PLANNED: {label: 'İçerik planında', className: 'planned'},
   DISCOVERED: {label: 'Otomatik izleniyor', className: 'discovered'},
   AWAITING_APPROVAL: {label: 'Onay bekliyor', className: 'awaiting'},
   APPROVED: {label: 'Uygulamaya hazır', className: 'approved'},
   APPLYING: {label: 'Sayfa güncelleniyor', className: 'applying'},
   APPLIED: {label: 'Sayfa güncellendi', className: 'applied'},
+  PREVIEW_READY: {label: 'Önizleme hazır', className: 'applied'},
+  PUBLISHING: {label: 'Canlıya yayınlanıyor', className: 'applying'},
+  PUBLISHED: {label: 'Canlıya yayınlandı', className: 'applied'},
   MONITORING: {label: 'Etki izleniyor', className: 'monitoring'},
   COMPLETED: {label: 'Tamamlandı', className: 'completed'},
   REJECTED: {label: 'Reddedildi', className: 'rejected'},
@@ -159,12 +163,25 @@ function renderDataState() {
   $('#googleAction').textContent = connected ? 'Şimdi yenile' :
     state.googleStatus?.configured ? 'Google’a bağla' : 'API’yi kur';
   $('#lastSyncLabel').textContent = `Son güncelleme: ${formatDateTime(lastSyncAt)}`;
+  const deployment = state.deploymentStatus;
+  const ready = deployment?.connected;
+  $('#deploymentState').textContent = ready ?
+    (deployment.state === 'ready' ? 'Hazır' : 'Kontrol gerekli') : 'Bağlı değil';
+  $('#deploymentState').className = `source-state ${ready ?
+    (deployment.state === 'ready' ? '' : 'attention') : 'disconnected'}`;
+  $('#deploymentAction').textContent = ready ? 'Bağlantıyı incele' : 'Bağlantıyı kur';
+  $('#deploymentSourceText').textContent = ready ?
+    `${deployment.connection.framework} · ${deployment.connection.provider} · ${deployment.connection.branch} dalı · ${deployment.untrackedFiles || 0} izlenmeyen dosya` :
+    'Onaylanan değişikliklerin gerçekten uygulanması için yerel Git ve yayınlama bağlantısı gerekir.';
 }
 function nextStepFor(workflow) {
+  if (workflow.status === 'PLANNED') return 'Arama niyetini doğrula ve ayrıntılı taslak hazırla';
   if (workflow.status === 'AWAITING_APPROVAL') return 'Önerilen değişikliklerin tümünü incele';
   if (workflow.status === 'APPROVED') return 'Site güncelleme bağlantısını kur';
   if (workflow.status === 'APPLYING') return 'Sayfa güncellemesinin tamamlanmasını bekle';
-  if (workflow.status === 'APPLIED') return 'Yeni sayfayı doğrula ve izlemeyi başlat';
+  if (workflow.status === 'PREVIEW_READY') return 'Önizlemeyi kontrol et ve canlı yayın kararı ver';
+  if (workflow.status === 'PUBLISHING') return 'Canlı yayının tamamlanmasını bekle';
+  if (['PUBLISHED', 'APPLIED'].includes(workflow.status)) return 'Yeni sayfayı doğrula ve izlemeyi başlat';
   if (workflow.status === 'MONITORING') return '14/28 günlük performans değişimini izle';
   if (workflow.status === 'COMPLETED') return 'Sonucu bilgi tabanına ekle';
   if (workflow.status === 'FAILED') return 'Hata ayrıntısını incele ve yeniden dene';
@@ -193,13 +210,17 @@ function workflowTargetUrl(workflow) {
   catch (_) { return workflow.targetPath; }
 }
 function workflowActionPanel(workflow, targetUrl) {
+  if (workflow.status === 'PLANNED') return `<div class="approval-box"><strong>Öneri unutulmayacak şekilde editoryal kuyruğa kaydedildi.</strong><br>Search Console sinyali, mevcut içerikle çakışma ve hedef sorgular doğrulanmadan yayın taslağına dönüştürülmeyecek.</div>`;
   if (workflow.status === 'AWAITING_APPROVAL') return `<div class="approval-box detail-approval"><strong>Onaylamadan önce yukarıdaki değişikliklerin tamamını kontrol et.</strong><br>Onay yalnızca bu listelenen taslağı uygulama aşamasına geçirir; siteyi henüz değiştirmez.</div><div class="detail-actions"><button class="reject-button detail-reject" data-workflow-action="reject" data-workflow-id="${escapeHtml(workflow.id)}">Öneriyi reddet</button><button class="modal-submit detail-approve" data-workflow-action="approve" data-workflow-id="${escapeHtml(workflow.id)}">Bu değişiklikleri onayla <span>→</span></button></div>`;
-  if (workflow.status === 'APPROVED') return `<div class="connection-warning"><strong>Site güncelleme bağlantısı henüz kurulmadı</strong><p>Öneri onaylandı fakat LingoDecoder koduna veya içerik sistemine bağlı bir yayınlama kanalı yok. Bu nedenle SEOAutoPilot sayfayı değiştirmiş gibi davranmayacak.</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Site bağlantısını kur →</button></div>`;
+  if (workflow.status === 'APPROVED' && !state.deploymentStatus?.connected) return `<div class="connection-warning"><strong>Site güncelleme bağlantısı henüz kurulmadı</strong><p>Öneri onaylandı fakat kaynak koduna bağlı bir yayınlama kanalı yok. Bu nedenle SEOAutoPilot sayfayı değiştirmiş gibi davranmayacak.</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Site bağlantısını kur →</button></div>`;
+  if (workflow.status === 'APPROVED') return `<div class="apply-progress monitoring"><i>↗</i><div><strong>Önizleme hazırlanmaya hazır</strong><p>Değişiklikler ${escapeHtml(state.deploymentStatus.connection.branch)} dalından oluşturulacak ayrı bir Git çalışma alanına uygulanacak. Canlı site bu aşamada değişmez.</p></div></div><div class="detail-actions"><button class="modal-submit" data-workflow-preview="${escapeHtml(workflow.id)}">Firebase önizlemesi hazırla <span>→</span></button></div>`;
   if (workflow.status === 'APPLYING') return `<div class="apply-progress"><i></i><div><strong>Sayfa güncelleniyor…</strong><p>Onaylanan değişiklikler bağlı yayınlama kanalı üzerinden uygulanıyor. Bu pencereyi yeniden açarsan işlem bitene kadar aynı durum gösterilir.</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Güncelleme henüz bitmedi</button></div>`;
-  if (workflow.status === 'APPLIED') return `<div class="apply-progress done"><i>✓</i><div><strong>Sayfa güncellendi</strong><p>${escapeHtml(formatDateTime(workflow.execution?.appliedAt))} tarihinde yayın adresi doğrulandı.</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution?.url || targetUrl)}" target="_blank" rel="noopener">Yeni sayfayı gör ↗</a><button class="modal-submit" data-workflow-action="start_monitoring" data-workflow-id="${escapeHtml(workflow.id)}">İzlemeyi başlat <span>→</span></button></div>`;
+  if (workflow.status === 'PREVIEW_READY') return `<div class="apply-progress done"><i>✓</i><div><strong>Firebase önizlemesi hazır</strong><p>${escapeHtml(formatDateTime(workflow.execution?.previewAt))} · ${workflow.execution?.appliedChangeIds?.length || 0} kesin değişiklik uygulandı · ${workflow.execution?.pendingChangeIds?.length || 0} editoryal madde sırada kaldı.</p></div></div><div class="connection-warning"><strong>Canlı site henüz değişmedi</strong><p>Önizlemeyi açıp sayfayı kontrol et. “Canlıya yayınla” ikinci ve son kullanıcı onayıdır; Git dalı güncellenir ve Firebase Hosting deploy başlar.</p></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution?.previewUrl)}" target="_blank" rel="noopener">Önizlemeyi gör ↗</a><button class="modal-submit" data-workflow-publish="${escapeHtml(workflow.id)}">Canlıya yayınla <span>→</span></button></div>`;
+  if (workflow.status === 'PUBLISHING') return `<div class="apply-progress"><i></i><div><strong>Canlıya yayınlanıyor…</strong><p>Onaylanan Git değişikliği kaydediliyor, uzak depoya gönderiliyor ve Firebase Hosting dağıtımı yapılıyor.</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Yayın henüz bitmedi</button></div>`;
+  if (['PUBLISHED', 'APPLIED'].includes(workflow.status)) return `<div class="apply-progress done"><i>✓</i><div><strong>Sayfa canlıya yayınlandı</strong><p>${escapeHtml(formatDateTime(workflow.execution?.appliedAt))} tarihinde yayın adresi doğrulandı.</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution?.url || targetUrl)}" target="_blank" rel="noopener">Yeni sayfayı gör ↗</a><button class="modal-submit" data-workflow-action="start_monitoring" data-workflow-id="${escapeHtml(workflow.id)}">İzlemeyi başlat <span>→</span></button></div>`;
   if (workflow.status === 'MONITORING') return `<div class="apply-progress monitoring"><i>◷</i><div><strong>14/28 günlük ölçüm sürüyor</strong><p>Başlangıç: ${escapeHtml(formatDateTime(workflow.monitoringStartedAt))}. Sistem süre dolmadan sonucu tamamlandı olarak işaretlemez.</p></div></div>${workflow.execution?.url ? `<div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution.url)}" target="_blank" rel="noopener">Yayınlanan sayfayı gör ↗</a></div>` : ''}`;
   if (workflow.status === 'COMPLETED') return `<div class="apply-progress done"><i>✓</i><div><strong>Ölçüm tamamlandı</strong><p>${workflow.result ? escapeHtml(JSON.stringify(workflow.result)) : 'Sonuç kaydı oluşturuldu; ayrıntılı karşılaştırma bilgi tabanında saklanacak.'}</p></div></div>`;
-  if (workflow.status === 'FAILED') return `<div class="connection-warning error"><strong>Güncelleme tamamlanamadı</strong><p>${escapeHtml(workflow.execution?.error || 'Yayınlama kanalı bilinmeyen bir hata döndürdü.')}</p></div>`;
+  if (workflow.status === 'FAILED') return `<div class="connection-warning error"><strong>Güncelleme tamamlanamadı</strong><p>${escapeHtml(workflow.execution?.error || 'Yayınlama kanalı bilinmeyen bir hata döndürdü.')}</p></div><div class="detail-actions"><button class="outline-button" data-workflow-action="retry" data-workflow-id="${escapeHtml(workflow.id)}">Sorunu düzelttim, yeniden hazırla →</button></div>`;
   if (workflow.status === 'REJECTED') return '<div class="approval-box"><strong>Öneri reddedildi</strong><br>Site üzerinde değişiklik yapılmadı. Yeni Search Console verisi geldiğinde fırsat yeniden değerlendirilebilir.</div>';
   return '<div class="approval-box"><strong>Otomatik veri izleme</strong><br>Yeterli sinyal oluşana kadar site üzerinde değişiklik yapılmayacak.</div>';
 }
@@ -216,6 +237,13 @@ function openWorkflowDetail(id) {
   $$('[data-workflow-action]', $('#workflowDetailContent')).forEach((button) =>
     button.addEventListener('click', () => runWorkflowAction(button.dataset.workflowId,
         button.dataset.workflowAction)));
+  $('[data-workflow-preview]', $('#workflowDetailContent'))?.addEventListener('click', () =>
+    runDeploymentAction(workflow.id, 'preview'));
+  $('[data-workflow-publish]', $('#workflowDetailContent'))?.addEventListener('click', () => {
+    if (window.confirm('Önizlemeyi kontrol ettin mi? Bu işlem değişikliği Git dalına kaydedip canlı Firebase Hosting sitesine yayınlayacak.')) {
+      runDeploymentAction(workflow.id, 'publish');
+    }
+  });
   $('[data-open-data-source]', $('#workflowDetailContent'))?.addEventListener('click', () => {
     closeWorkflowDetail(); setView('data');
   });
@@ -274,7 +302,7 @@ async function loadReport() {
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'Veri alınamadı.');
   Object.assign(state, payload);
-  await loadWorkflows();
+  await Promise.all([loadWorkflows(), loadDeploymentStatus()]);
   renderAll();
 }
 async function loadWorkflows() {
@@ -282,6 +310,12 @@ async function loadWorkflows() {
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'İş akışları alınamadı.');
   state.workflows = payload.workflows || [];
+}
+async function loadDeploymentStatus() {
+  const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/deployment`);
+  const payload = await response.json();
+  state.deploymentStatus = response.ok ? payload : {connected: false, state: 'error',
+    error: payload.error};
 }
 async function runWorkflowAction(id, action) {
   try {
@@ -294,6 +328,31 @@ async function runWorkflowAction(id, action) {
     renderWorkflows(); openWorkflowDetail(id);
     showToast(action === 'approve' ? 'Değişiklik taslağı onaylandı; site henüz güncellenmedi.' :
       action === 'reject' ? 'Görev reddedildi.' : 'Görev durumu güncellendi.');
+  } catch (exception) { showToast(exception.message, 'error'); }
+}
+async function runDeploymentAction(id, action) {
+  try {
+    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/workflows/${encodeURIComponent(id)}/${action}`,
+        {method: 'POST'});
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    const index = state.workflows.findIndex((item) => item.id === id);
+    if (index >= 0) state.workflows[index] = payload.workflow;
+    renderWorkflows(); openWorkflowDetail(id);
+    showToast(action === 'preview' ? 'Önizleme hazırlığı başladı. Durum otomatik güncellenecek.' :
+      'Canlı yayın başladı. Tamamlandığında burada görünecek.');
+    pollWorkflow(id);
+  } catch (exception) { showToast(exception.message, 'error'); }
+}
+async function pollWorkflow(id) {
+  await new Promise((resolve) => setTimeout(resolve, 1800));
+  try {
+    await loadWorkflows(); renderWorkflows();
+    const workflow = state.workflows.find((item) => item.id === id);
+    if (!workflow) return;
+    if (!$('#workflowDetailModal').hidden) openWorkflowDetail(id);
+    if (['APPLYING', 'PUBLISHING'].includes(workflow.status)) pollWorkflow(id);
+    else showToast(workflow.status === 'FAILED' ? 'İşlem tamamlanamadı; hata ayrıntısını aç.' :
+      'Yayınlama adımı tamamlandı.', workflow.status === 'FAILED' ? 'error' : 'success');
   } catch (exception) { showToast(exception.message, 'error'); }
 }
 async function loadProjects() {
@@ -405,6 +464,28 @@ async function connectGoogle() {
   if (!response.ok) { $('#googleError').textContent = payload.error; return; }
   location.href = payload.url;
 }
+function openDeploymentModal() {
+  $('#repositoryPathInput').value = state.deploymentStatus?.connection?.repositoryPath ||
+    state.project?.deployment?.repositoryPath || (state.project?.id === 'lingodecoder' ?
+      'C:\\LingoDecoder' : '');
+  $('#deploymentError').textContent = state.deploymentStatus?.error || '';
+  $('#deploymentModal').hidden = false;
+}
+async function saveDeployment() {
+  const button = $('#saveDeployment'); const error = $('#deploymentError');
+  button.disabled = true; error.textContent = ''; button.textContent = 'Doğrulanıyor…';
+  try {
+    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/deployment`,
+        {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
+          repositoryPath: $('#repositoryPathInput').value})});
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    state.deploymentStatus = payload.deployment;
+    if (payload.project) updateCurrentProject(payload.project);
+    renderDataState(); $('#deploymentModal').hidden = true;
+    showToast('Yerel Git ve Firebase Hosting bağlantısı doğrulandı.');
+  } catch (exception) { error.textContent = exception.message; }
+  finally { button.disabled = false; button.innerHTML = 'Bağlantıyı doğrula ve kaydet <span>→</span>'; }
+}
 
 $$('.nav-item').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 $$('[data-go]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.go)));
@@ -420,6 +501,9 @@ $$('[data-close-project]').forEach((button) => button.addEventListener('click', 
 $('#googleAction').addEventListener('click', googleAction);
 $('#saveGoogleConfig').addEventListener('click', saveGoogleConfig);
 $('#connectGoogle').addEventListener('click', connectGoogle);
+$('#deploymentAction').addEventListener('click', openDeploymentModal);
+$('#saveDeployment').addEventListener('click', saveDeployment);
+$$('[data-close-deployment]').forEach((button) => button.addEventListener('click', () => $('#deploymentModal').hidden = true));
 $$('[data-close-google]').forEach((button) => button.addEventListener('click', () => $('#googleModal').hidden = true));
 $$('[data-close-modal]').forEach((button) => button.addEventListener('click', () => $('#importModal').hidden = true));
 $('#importModal').addEventListener('click', (event) => { if (event.target === $('#importModal')) $('#importModal').hidden = true; });
@@ -428,5 +512,5 @@ $('#directoryInput').addEventListener('keydown', (event) => { if (event.key === 
 $('#drawerClose').addEventListener('click', closeDrawer); $('#drawerBackdrop').addEventListener('click', closeDrawer);
 $$('[data-close-workflow]').forEach((button) => button.addEventListener('click', closeWorkflowDetail));
 $('#workflowDetailModal').addEventListener('click', (event) => { if (event.target === $('#workflowDetailModal')) closeWorkflowDetail(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; $('#googleModal').hidden = true; closeWorkflowDetail(); closeDrawer(); } });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; $('#googleModal').hidden = true; $('#deploymentModal').hidden = true; closeWorkflowDetail(); closeDrawer(); } });
 loadProjects().catch((error) => { console.error(error); showToast('Veri yüklenemedi; sunucu bağlantısını kontrol et.', 'error'); });

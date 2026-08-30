@@ -10,7 +10,10 @@ const {demoReport} = require('./src/demo-report');
 const {createProject, getPrivateProject, listProjects, updateProject} =
   require('./src/project-store');
 const google = require('./src/google-search-console');
-const {syncWorkflows, transition} = require('./src/workflow');
+const deployment = require('./src/deployment');
+const {mergeEditorialBacklog} = require('./src/seo-backlog');
+const {beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
+  syncWorkflows, transition} = require('./src/workflow');
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.PORT || 4173);
@@ -31,6 +34,10 @@ function readBody(request) {
     request.on('error', reject);
   });
 }
+function trustedLocalOrigin(request) {
+  const origin = request.headers.origin;
+  return !origin || origin === `http://${HOST}:${PORT}`;
+}
 function dateValue(date) { return date.toISOString().slice(0, 10); }
 function emptyReport(project) {
   return {schemaVersion: 1, generatedAt: new Date().toISOString(), source: 'empty',
@@ -50,6 +57,9 @@ function projectReport(project) {
   return {report: project.id === 'lingodecoder' ? demoReport : emptyReport(project),
     directory: '', mode: project.id === 'lingodecoder' ? 'demo' : 'empty'};
 }
+function projectWorkflows(projectId, report, existing = []) {
+  return mergeEditorialBacklog(projectId, syncWorkflows(projectId, report, existing), existing);
+}
 function serveStatic(requestUrl, response) {
   const pathname = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
   const filePath = path.resolve(PUBLIC_DIR, `.${pathname}`);
@@ -64,9 +74,46 @@ function projectIdFrom(pathname, suffix) {
   const match = pathname.match(new RegExp(`^/api/projects/([^/]+)/${suffix}$`, 'u'));
   return match ? decodeURIComponent(match[1]) : null;
 }
+function updateWorkflow(projectId, workflowId, transform) {
+  const project = getPrivateProject(projectId);
+  if (!project) throw new Error('Proje bulunamadı.');
+  const workflows = [...(project.workflows || [])];
+  const index = workflows.findIndex((item) => item.id === workflowId);
+  if (index < 0) throw new Error('Görev bulunamadı.');
+  workflows[index] = transform(workflows[index], project);
+  updateProject(project.id, {workflows});
+  return workflows[index];
+}
+function runPreviewJob(projectId, workflowId) {
+  setImmediate(async () => {
+    try {
+      const project = getPrivateProject(projectId);
+      const workflow = project.workflows.find((item) => item.id === workflowId);
+      const output = await deployment.preparePreview(workflow, project.deployment);
+      updateWorkflow(projectId, workflowId, (current) => finishExecution(current, output));
+    } catch (error) {
+      try { updateWorkflow(projectId, workflowId, (current) => failExecution(current, error.message)); }
+      catch (_) { /* project may have been removed while the job ran */ }
+    }
+  });
+}
+function runPublishJob(projectId, workflowId) {
+  setImmediate(async () => {
+    try {
+      const project = getPrivateProject(projectId);
+      const workflow = project.workflows.find((item) => item.id === workflowId);
+      const output = await deployment.publishPreview(workflow, project.deployment,
+          project.siteUrl);
+      updateWorkflow(projectId, workflowId, (current) => finishPublish(current, output));
+    } catch (error) {
+      try { updateWorkflow(projectId, workflowId, (current) => failExecution(current, error.message)); }
+      catch (_) { /* project may have been removed while the job ran */ }
+    }
+  });
+}
 async function routeApi(request, response, requestUrl) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.5.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -74,6 +121,27 @@ async function routeApi(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/projects') {
     try { json(response, 201, {project: createProject(await readBody(request))}); }
     catch (error) { json(response, 400, {error: error.message}); }
+    return true;
+  }
+  const deploymentId = projectIdFrom(requestUrl.pathname, 'deployment');
+  if (deploymentId && request.method === 'GET') {
+    const project = getPrivateProject(deploymentId);
+    if (!project) json(response, 404, {error: 'Proje bulunamadı.'});
+    else json(response, 200, deployment.inspectConnection(project.deployment));
+    return true;
+  }
+  if (deploymentId && request.method === 'POST') {
+    try {
+      const project = getPrivateProject(deploymentId);
+      if (!project) throw new Error('Proje bulunamadı.');
+      const connection = deployment.detectConnection((await readBody(request)).repositoryPath);
+      if (connection.provider !== 'firebase_hosting') {
+        throw new Error('Bu MVP şu anda yalnızca Firebase Hosting projelerini yayınlayabilir.');
+      }
+      const updated = updateProject(project.id, {deployment: connection});
+      json(response, 200, {project: updated,
+        deployment: deployment.inspectConnection(connection)});
+    } catch (error) { json(response, 400, {error: error.message}); }
     return true;
   }
   const reportId = projectIdFrom(requestUrl.pathname, 'report');
@@ -92,7 +160,7 @@ async function routeApi(request, response, requestUrl) {
       if (!project) json(response, 404, {error: 'Proje bulunamadı.'});
       else {
         const result = projectReport(project);
-        const workflows = syncWorkflows(project.id, result.report, project.workflows || []);
+        const workflows = projectWorkflows(project.id, result.report, project.workflows || []);
         updateProject(project.id, {workflows});
         json(response, 200, {workflows});
       }
@@ -117,6 +185,34 @@ async function routeApi(request, response, requestUrl) {
     } catch (error) { json(response, 400, {error: error.message}); }
     return true;
   }
+  const workflowPreview = requestUrl.pathname.match(
+      /^\/api\/projects\/([^/]+)\/workflows\/([^/]+)\/preview$/u);
+  if (request.method === 'POST' && workflowPreview) {
+    try {
+      const projectId = decodeURIComponent(workflowPreview[1]);
+      const workflowId = decodeURIComponent(workflowPreview[2]);
+      const project = getPrivateProject(projectId);
+      if (!project?.deployment) throw new Error('Site güncelleme bağlantısı kurulmamış.');
+      const workflow = updateWorkflow(projectId, workflowId, (current) =>
+        beginExecution(current, 'local_git_firebase_preview'));
+      runPreviewJob(projectId, workflowId);
+      json(response, 202, {workflow});
+    } catch (error) { json(response, 400, {error: error.message}); }
+    return true;
+  }
+  const workflowPublish = requestUrl.pathname.match(
+      /^\/api\/projects\/([^/]+)\/workflows\/([^/]+)\/publish$/u);
+  if (request.method === 'POST' && workflowPublish) {
+    try {
+      const projectId = decodeURIComponent(workflowPublish[1]);
+      const workflowId = decodeURIComponent(workflowPublish[2]);
+      const workflow = updateWorkflow(projectId, workflowId, (current) =>
+        beginPublish(current));
+      runPublishJob(projectId, workflowId);
+      json(response, 202, {workflow});
+    } catch (error) { json(response, 400, {error: error.message}); }
+    return true;
+  }
   const importId = projectIdFrom(requestUrl.pathname, 'import');
   if (request.method === 'POST' && importId) {
     try {
@@ -126,7 +222,7 @@ async function routeApi(request, response, requestUrl) {
       if (!project) throw new Error('Proje bulunamadı.');
       const loaded = loadExport(payload.directory.trim(),
           {clusters: project.id === 'lingodecoder' ? undefined : []});
-      const workflows = syncWorkflows(project.id, loaded.report, project.workflows || []);
+      const workflows = projectWorkflows(project.id, loaded.report, project.workflows || []);
       const importedProject = updateProject(importId, {csvDirectory: loaded.directory,
         lastSyncReport: null, lastSyncAt: new Date().toISOString(), workflows});
       json(response, 200, {report: loaded.report, mode: 'live', directory: loaded.directory,
@@ -175,7 +271,7 @@ async function routeApi(request, response, requestUrl) {
       const report = analyzeExport(tables,
           {clusters: project.id === 'lingodecoder' ? undefined : []});
       report.source = 'search_console_api';
-      const workflows = syncWorkflows(project.id, report, project.workflows || []);
+      const workflows = projectWorkflows(project.id, report, project.workflows || []);
       const syncedProject = updateProject(project.id, {lastSyncReport: report,
         lastSyncAt: new Date().toISOString(), workflows});
       json(response, 200, {report, mode: 'api', directory: '', projectId: project.id,
@@ -212,6 +308,10 @@ const server = http.createServer(async (request, response) => {
       return oauthCallback(response, requestUrl);
     }
     if (requestUrl.pathname.startsWith('/api/')) {
+      if (request.method !== 'GET' && !trustedLocalOrigin(request)) {
+        json(response, 403, {error: 'Yerel uygulama dışından gelen değişiklik isteği engellendi.'});
+        return;
+      }
       if (!await routeApi(request, response, requestUrl)) json(response, 404, {error: 'API adresi bulunamadı.'});
       return;
     }

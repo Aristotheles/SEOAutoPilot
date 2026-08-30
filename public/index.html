@@ -172,7 +172,7 @@
           <div class="data-grid">
             <article class="panel source-card" id="googleSourceCard"><div class="source-logo google">G</div><div><span class="card-kicker">ÖNERİLEN KAYNAK</span><h2>Google Search Console API</h2><p id="googleSourceText">Otomatik veri akışı için OAuth bağlantısını yapılandır.</p><small class="last-sync-label" id="lastSyncLabel">Son güncelleme: Henüz yok</small></div><button class="outline-button source-action" id="googleAction">API'yi kur</button></article>
             <article class="panel source-card connected"><div class="source-logo csv">CSV</div><div><span class="card-kicker">YEDEK VERİ KAYNAĞI</span><h2>Search Console CSV</h2><p id="sourcePath">Demo veri kullanılıyor</p></div><button class="outline-button source-action" id="dataImportButton">CSV içe aktar</button></article>
-            <article class="panel source-card execution-source"><div class="source-logo deploy">↗</div><div><span class="card-kicker">UYGULAMA KANALI</span><h2>Site güncelleme bağlantısı</h2><p>Onaylanan değişikliklerin gerçekten uygulanması için GitHub, yerel Git veya CMS bağlantısı gerekir.</p></div><span class="source-state disconnected">Bağlı değil</span></article>
+            <article class="panel source-card execution-source"><div class="source-logo deploy">↗</div><div><span class="card-kicker">UYGULAMA KANALI</span><h2>Site güncelleme bağlantısı</h2><p id="deploymentSourceText">Onaylanan değişikliklerin gerçekten uygulanması için yerel Git ve yayınlama bağlantısı gerekir.</p></div><button class="outline-button source-action" id="deploymentAction">Bağlantıyı kur</button><span class="source-state disconnected" id="deploymentState">Bağlı değil</span></article>
             <article class="panel data-instruction"><span class="step-number">01</span><div><h3>Search Console'dan dışa aktar</h3><p>Performans raporunda sağ üstteki “Dışa aktar” seçeneğinden CSV paketini indir.</p></div></article>
             <article class="panel data-instruction"><span class="step-number">02</span><div><h3>Klasör yolunu göster</h3><p>İndirilen klasörün tam yolunu içe aktarma alanına yapıştır.</p></div></article>
             <article class="panel data-instruction"><span class="step-number">03</span><div><h3>Önerileri onayla</h3><p>Motor veriyi yorumlar; hiçbir içerik onayın olmadan yayınlanmaz.</p></div></article>
@@ -233,6 +233,20 @@
     <section class="modal workflow-detail-modal" role="dialog" aria-modal="true" aria-labelledby="workflowDetailTitle">
       <button class="modal-close" data-close-workflow aria-label="Kapat">×</button>
       <div id="workflowDetailContent"></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="deploymentModal" hidden>
+    <section class="modal project-modal" role="dialog" aria-modal="true" aria-labelledby="deploymentModalTitle">
+      <button class="modal-close" data-close-deployment aria-label="Kapat">×</button>
+      <div class="modal-icon google-modal-icon">↗</div>
+      <p class="eyebrow">YAYINLAMA BAĞLANTISI</p><h2 id="deploymentModalTitle">Yerel Git + Firebase Hosting</h2>
+      <p>Her proje kendi kaynak klasörünü ve Firebase projesini ayrı saklar. Önizleme, geçici bir Git çalışma alanında hazırlanır.</p>
+      <label for="repositoryPathInput">Proje klasörü</label>
+      <input id="repositoryPathInput" placeholder="C:\Projeler\WebSitem">
+      <div class="modal-note"><span>i</span>Ana çalışma klasöründeki mevcut değişikliklere dokunulmaz. Canlı yayın için ayrıca ikinci onay gerekir.</div>
+      <button class="primary-button modal-submit" id="saveDeployment">Bağlantıyı doğrula ve kaydet <span>→</span></button>
+      <p class="form-error" id="deploymentError"></p>
     </section>
   </div>
 

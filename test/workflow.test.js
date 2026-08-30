@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {STATUS, beginExecution, finishExecution, priorityFor, syncWorkflows,
+const {STATUS, beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
+  priorityFor, syncWorkflows,
   transition} = require('../src/workflow');
 
 const opportunity = {clusterId: 'growth', label: 'Growth guide',
@@ -37,9 +38,14 @@ test('does not allow skipping required workflow stages', () => {
   const applying = beginExecution(approved, 'test-adapter', '2026-08-01T09:00:00.000Z');
   assert.equal(applying.status, STATUS.applying);
   assert.throws(() => beginExecution(applying, 'test-adapter'), /devam ediyor/u);
-  const applied = finishExecution(applying, {url: 'https://example.com/growth-guide',
+  const preview = finishExecution(applying, {url: 'https://preview.example.com/growth-guide',
     revision: 'abc123'}, '2026-08-01T09:01:00.000Z');
-  const monitoring = transition(applied, 'start_monitoring',
+  assert.equal(preview.status, STATUS.previewReady);
+  assert.throws(() => transition(preview, 'start_monitoring'));
+  const publishing = beginPublish(preview, '2026-08-01T09:01:30.000Z');
+  const published = finishPublish(publishing, {url: 'https://example.com/growth-guide'},
+      '2026-08-01T09:02:00.000Z');
+  const monitoring = transition(published, 'start_monitoring',
       {now: '2026-08-01T09:02:00.000Z'});
   assert.throws(() => transition(monitoring, 'complete',
       {now: '2026-08-02T09:02:00.000Z'}), /14 günlük/u);
@@ -70,4 +76,13 @@ test('uses target locale for proposed copy', () => {
     targetPath: '/tr/blog/almanca-artikeller'};
   const workflow = syncWorkflows('project-1', {opportunities: [turkish]})[0];
   assert.match(workflow.brief.changes[0].proposed, /Kurallar, Mantık ve Örnekler/u);
+});
+
+test('keeps failed preview work transparent and retryable', () => {
+  const workflow = syncWorkflows('project-1', {opportunities: [opportunity]})[0];
+  const applying = beginExecution(transition(workflow, 'approve'), 'test-adapter');
+  const failed = failExecution(applying, 'Build failed');
+  assert.equal(failed.status, STATUS.failed);
+  assert.equal(failed.execution.failedPhase, STATUS.applying);
+  assert.equal(transition(failed, 'retry').status, STATUS.approved);
 });

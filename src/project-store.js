@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const {publicConnection} = require('./deployment');
 
 const DATA_DIR = process.env.SEO_AUTOPILOT_DATA_DIR ?
   path.resolve(process.env.SEO_AUTOPILOT_DATA_DIR) : path.join(__dirname, '..', 'data');
@@ -12,7 +13,7 @@ const starterProject = Object.freeze({
   searchConsoleProperty: 'sc-domain:lingodecoder.de', locales: ['tr', 'en'],
   status: 'active', createdAt: '2026-08-29T00:00:00.000Z',
   updatedAt: '2026-08-29T00:00:00.000Z', csvDirectory: '', oauth: null,
-  lastSyncAt: null, lastSyncReport: null, workflows: [],
+  lastSyncAt: null, lastSyncReport: null, workflows: [], deployment: null,
 });
 
 function initialState() { return {schemaVersion: 1, projects: [{...starterProject}]}; }
@@ -31,9 +32,10 @@ function writeState(state) {
   fs.renameSync(temporary, STATE_FILE);
 }
 function publicProject(project) {
-  const {oauth, lastSyncReport, workflows, ...safe} = project;
+  const {oauth, lastSyncReport, workflows, deployment, ...safe} = project;
   return {...safe, connection: oauth?.refreshToken ? 'connected' : 'disconnected',
-    hasReport: Boolean(lastSyncReport || project.csvDirectory)};
+    hasReport: Boolean(lastSyncReport || project.csvDirectory),
+    deployment: publicConnection(deployment)};
 }
 function listProjects() { return readState().projects.map(publicProject); }
 function getProject(id, {includeSecrets = false} = {}) {
@@ -61,7 +63,7 @@ function createProject(input) {
     searchConsoleProperty: `sc-domain:${hostname.replace(/^www\./u, '')}`,
     locales: Array.isArray(input.locales) && input.locales.length ? input.locales : ['tr'],
     status: 'active', createdAt: now, updatedAt: now, csvDirectory: '', oauth: null,
-    lastSyncAt: null, lastSyncReport: null, workflows: []};
+    lastSyncAt: null, lastSyncReport: null, workflows: [], deployment: null};
   state.projects.push(project);
   writeState(state);
   return publicProject(project);
@@ -71,7 +73,7 @@ function updateProject(id, updates) {
   const index = state.projects.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Proje bulunamadı.');
   const allowed = ['name', 'siteUrl', 'searchConsoleProperty', 'locales',
-    'csvDirectory', 'oauth', 'lastSyncAt', 'lastSyncReport', 'workflows'];
+    'csvDirectory', 'oauth', 'lastSyncAt', 'lastSyncReport', 'workflows', 'deployment'];
   const clean = Object.fromEntries(Object.entries(updates)
       .filter(([key]) => allowed.includes(key)));
   state.projects[index] = {...state.projects[index], ...clean,
