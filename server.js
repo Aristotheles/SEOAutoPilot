@@ -12,6 +12,8 @@ const {createProject, getPrivateProject, listProjects, updateProject, saveProfil
 const google = require('./src/google-search-console');
 const {analysisOptions, reanalyzeReport, assertProfileWorkflow} = require('./src/profile-analysis');
 const connections = require('./src/connection-management');
+const {inspectSite,profileFromInspection} = require('./src/site-inspection');
+const inspections = new Map();
 const deployment = require('./src/deployment');
 const {mergeEditorialBacklog} = require('./src/seo-backlog');
 const {beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
@@ -114,6 +116,29 @@ function runPublishJob(projectId, workflowId) {
   });
 }
 async function routeApi(request, response, requestUrl) {
+  const inspectionRoute=requestUrl.pathname.match(/^\/api\/projects\/([^/]+)\/inspection(?:\/(accept))?$/);
+  if(inspectionRoute){
+    const id=decodeURIComponent(inspectionRoute[1]);
+    try {
+      const project=getPrivateProject(id);if(!project)throw Error('Proje bulunamadı.');
+      if(request.method==='POST'&&inspectionRoute[2]==='accept'){
+        const input=await readBody(request);const job=inspections.get(id);
+        if(job?.status!=='complete'||input.scannedAt!==job.result.scannedAt)throw Error('Önce site incelemesini tamamla.');
+        const profile=profileFromInspection(project,job.result,input.primaryLanguage);
+        json(response,200,{project:saveProfile(id,profile,job.result.profileRevision)});return true;
+      }
+      if(request.method==='POST'&&!inspectionRoute[2]){
+        if(inspections.get(id)?.status==='running'){json(response,202,inspections.get(id));return true;}
+        if([...inspections.values()].filter(j=>j.status==='running').length>=2)throw Error('Başka incelemeler sürüyor; kısa süre sonra tekrar dene.');
+        if(inspections.size>100)for(const [key,value] of inspections)if(value.status!=='running')inspections.delete(key);
+        const job={status:'running',visited:0,pages:0};inspections.set(id,job);
+        inspectSite(project,{onProgress:progress=>Object.assign(job,progress)}).then(result=>Object.assign(job,{status:'complete',result})).catch(error=>Object.assign(job,{status:'failed',error:error.message}));
+        json(response,202,job);return true;
+      }
+      if(request.method==='GET'&&!inspectionRoute[2]){json(response,200,inspections.get(id)||{status:'idle'});return true;}
+      json(response,405,{error:'Yöntem desteklenmiyor.'});return true;
+    }catch(error){json(response,400,{error:error.message});return true;}
+  }
   if (request.method === 'DELETE') {
     const removal = requestUrl.pathname.match(/^\/api\/projects\/([^/]+)(?:\/(google|deployment))?$/u);
     if (removal || requestUrl.pathname === '/api/google/config') {
@@ -132,7 +157,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.7.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.8.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;

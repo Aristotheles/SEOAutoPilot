@@ -160,6 +160,23 @@ npm run analyze -- "C:\path\to\Search-Console-export" `
 
 ## Site profili — 0.7.0
 
+### Otomatik inceleme — 0.8.0
+
+**Siteyi otomatik incele → özeti kontrol et → Bu bilgilerle devam et.**
+Teknik form kapalı Gelişmiş ayarlar bölümüne taşındı. İnceleme aynı HTTPS alan
+adındaki HTML sayfalarını, sitemap dosyalarını, dil bildirimlerini, alternatif
+dil bağlantılarını ve stil dosyası bağlantılarını okur. İlk tarama en fazla
+40 adres/60 saniye ile sınırlıdır; tüm site taranmış sayılmaz. Özel ağlara ve
+başka alan adlarına yönlendirmeler engellenir. Google tokenı gönderilmez.
+
+JavaScript çalıştırılmaz; görülen dil sunucu HTML bildiriminin kanıtıdır,
+gerçek metnin dilinin veya Googlebot görünümünün garantisi değildir. Ana dil
+belirsizse tek seçim sorulur. Ziyaretçi açılış kuralları tahmin edilmez ve
+mevcut tercihler değiştirilmez. İnceleme kendi başına profil kaydetmez.
+Kullanıcı onayı sonrası yalnız doğrulanan adreslere otomatik taslak izni verilir.
+İnceleme özeti sunucu yeniden başlatılana kadar tutulur; onaylanan eşleştirmeler
+proje profilinde kalıcıdır. Yeni inceleme eski dil tercihlerini silmez.
+
 **Site profili** ekranından her projenin içerik dillerini, ana dilini, ilk ziyaret
 varsayılanını, açılış tercihini, hedef pazarlarını ve marka bilgilerini kaydet.
 Bir yazının bütün dillere çevrilmesi zorunlu değildir. İngilizce varsayılan açılış,

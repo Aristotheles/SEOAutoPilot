@@ -85,7 +85,8 @@
       <div class="content">
         <section class="view" id="view-profile">
           <div class="page-heading"><div><p class="eyebrow">PROJEYE ÖZEL KURALLAR</p><h1>Site profili</h1><p id="profileProjectLabel"></p></div></div>
-          <div class="panel profile-notice"><strong id="profileStatus">Kontrol bekliyor</strong><p>Bu ayarlar yalnız SEOAutoPilot'ın analiz ve önerilerini yönlendirir. Kaydetmek sitenin kodunu, dilini, yönlendirmesini veya yayınını değiştirmez. Google'ın ne gördüğü bu ekranda doğrulanmış sayılmaz.</p></div>
+          <div class="panel profile-notice"><strong id="profileStatus">Kontrol bekliyor</strong><p>Form doldurman gerekmiyor. Siteyi inceleyelim, bulduklarımızı birlikte kontrol edelim. Sitenin içeriği ve açılış davranışı değişmez.</p><button type="button" class="primary-button" id="inspectSite">Siteyi otomatik incele</button><p id="inspectionProgress" role="status" aria-live="polite"></p><div id="inspectionSummary"></div></div>
+          <details id="advancedProfile"><summary>Gelişmiş ayarlar — yalnız gerekirse</summary>
           <form id="siteProfileForm" class="profile-form">
             <section class="panel profile-section"><h2>Marka ve hedef</h2><div class="profile-grid">
               <label>Marka adı<input id="profileBrand" required maxlength="120"></label>
@@ -107,10 +108,11 @@
             <section class="panel profile-section"><h2>URL ve içerik dili eşleşmeleri</h2><div class="profile-grid">
               <label>Dil klasörleri<textarea id="profileRoutes" rows="5" placeholder="/tr/ = tr&#10;/en/ = en"></textarea></label>
               <label>Özel sayfa eşleşmeleri<textarea id="profilePages" rows="5" placeholder="/blog/example.html = en&#10;/blog/ornek.html = tr"></textarea></label>
-            </div><p class="profile-help">Her satıra bir eşleşme gir. Çok dilli bir sitede dili belli olmayan sayfa İngilizce varsayılmaz; taslak bekletilir. Ana açılış dili, bütün sayfaların içerik dili değildir. Otomatik sayfa envanteri sonraki pakettedir.</p></section>
+            </div><p class="profile-help">Otomatik inceleme bu eşleşmeleri hazırlayabilir. Gerekiyorsa her satıra bir düzeltme gir. Dili belli olmayan sayfa İngilizce varsayılmaz; taslak bekletilir. Ana açılış dili, bütün sayfaların içerik dili değildir.</p></section>
             <section class="panel profile-section"><h2>Tasarım ve mevcut plan</h2><label>Tasarım notları<textarea id="profileDesign" rows="3" maxlength="2000" placeholder="Ortak stil dosyası, fontlar, korunacak kurallar…"></textarea></label><p class="profile-help">Mevcut tasarım korunur. Bu alan henüz otomatik tasarım doğrulaması çalıştırmaz.</p><label class="profile-check" id="profileLegacyRow" hidden><input type="checkbox" id="profileLegacy">Bu projeden taşınan mevcut konu analizini koru</label><p id="profileBacklog" class="profile-help"></p></section>
             <div class="panel profile-section"><label class="profile-check"><input type="checkbox" id="profileConfirm" required>Bu profilin seçili projeye ait olduğunu doğruluyorum. Önceki taslak ve önizleme onaylarının yeniden isteneceğini biliyorum.</label><p id="profileError" class="form-error" role="alert"></p><button type="submit" class="primary-button" id="saveSiteProfile">Profili doğrula ve kaydet</button></div>
           </form>
+          </details>
         </section>
         <section class="view active" id="view-overview">
           <div class="page-heading">

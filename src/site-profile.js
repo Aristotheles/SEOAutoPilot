@@ -57,6 +57,7 @@ function normalizeProfile(input, project) {
     languages, primaryLanguage:member(input.primaryLanguage), fallbackLanguage:member(input.fallbackLanguage),
     openingPolicy:input.openingPolicy, rememberChoice:input.rememberChoice !== false, preserveExplicitUrl:true,
     countryRules, targetMarkets, coverage:input.coverage, languageRoutes, pageLanguages,
+    requirePageEvidence:input.requirePageEvidence === true,
     design:{mode:'preserve_existing', notes:string(input.design?.notes ?? '', 2000)},
     analysisPreset:input.keepLegacyAnalysis === false ? 'generic' : base.analysisPreset,
     editorialBacklog:base.editorialBacklog || []};
@@ -64,11 +65,12 @@ function normalizeProfile(input, project) {
 function resolveLanguage(opportunity, profile) {
   const target = opportunity.targetPath || '';
   const explicit = profile?.pageLanguages?.find(item => item.path === target)?.language;
+  if(profile?.requirePageEvidence && !explicit) return {language:null,reason:'Bu sayfanın dili incelemede doğrulanmadı. Siteyi yeniden incele veya gelişmiş ayarlardan kontrol et.'};
   const route = [...(profile?.languageRoutes || [])].sort((a,b)=>b.prefix.length-a.prefix.length)
     .find(item=>target.startsWith(item.prefix))?.language;
   let declared;
   try { if (opportunity.locale && opportunity.locale !== 'und') declared = locale(opportunity.locale); } catch (_) { /* unknown */ }
-  const code = explicit || declared || route || (profile?.status === 'confirmed' && profile.languages.length === 1 ? profile.languages[0] : null);
+  const code = explicit || declared || route || (profile?.status === 'confirmed' && !profile.requirePageEvidence && profile.languages.length === 1 ? profile.languages[0] : null);
   if ((explicit && declared && explicit !== declared) || (route && code && route !== code)) return {language:null, reason:'Sayfa dili ile profil kuralları çelişiyor.'};
   if (!code) return {language:null, reason:'Sayfanın dili doğrulanmadı. Site profilinde URL–dil eşleştirmesi ekle.'};
   if (profile && !profile.languages.includes(code)) return {language:null, reason:'Sayfanın dili proje kapsamına dahil değil.'};

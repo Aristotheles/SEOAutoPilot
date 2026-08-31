@@ -72,3 +72,5 @@
 .profile-help,.profile-notice p {font-size:15px;line-height:1.7;color:#53617c;}
 .profile-form :focus-visible {outline:3px solid #7864ed;outline-offset:2px;}
 @media(max-width:760px){.profile-grid{grid-template-columns:1fr;}.profile-section,.profile-notice{padding:20px;}}
+#advancedProfile>summary,#inspectionSummary summary{cursor:pointer;font-size:16px;font-weight:700;padding:18px 0}
+#inspectionSummary{font-size:16px;line-height:1.65;overflow-wrap:anywhere}#inspectionSummary h2{font-size:23px}#inspectionSummary select{padding:12px;margin:12px;font:inherit}#inspectionSummary details{max-height:340px;overflow:auto}#inspectionProgress{font-size:16px}
