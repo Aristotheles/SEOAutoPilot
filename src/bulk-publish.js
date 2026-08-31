@@ -7,6 +7,10 @@ function plan(project){
   const items=[],skipped=[],notReady=[],paths=new Set();
   for(const w of project.workflows||[]){
     if(['PUBLISHED','MONITORING','COMPLETED','REJECTED'].includes(w.status)||w.execution?.appliedAt)continue;
+    if(w.blockedReason){
+      notReady.push({id:w.id,title:w.title,status:w.status,reason:w.blockedReason});
+      continue;
+    }
     if(!['AWAITING_APPROVAL','APPROVED','PREVIEW_READY'].includes(w.status)){
       notReady.push({id:w.id,title:w.title,status:w.status,reason:'Henüz uygulanacak değişiklik taslağı hazırlanmamış.'});
       continue;
@@ -16,7 +20,7 @@ function plan(project){
     const changes=(w.brief?.changes||[]).filter(c=>FIELDS.has(c.id));
     if(!reason&&(!changes.length||changes.some(c=>typeof c.proposed!=='string'||!c.proposed.trim())))reason='Uygulanabilir kesin değişiklik yok.';
     if(!reason&&paths.has(w.targetPath))reason='Aynı sayfa için başka bir öneri var.';
-    if(reason){skipped.push({id:w.id,title:w.title,reason});continue;}
+    if(reason){skipped.push({id:w.id,title:w.title,reason,action:w.action});continue;}
     paths.add(w.targetPath);items.push({id:w.id,title:w.title,targetPath:w.targetPath,changes,pending:(w.brief.changes||[]).filter(c=>!FIELDS.has(c.id)),briefHash:w.briefHash,profileRevision:w.profileRevision});
   }
   const token=crypto.createHash('sha256').update(JSON.stringify({site:project.siteUrl,profile:project.profile,connection:project.deployment,items})).digest('hex');

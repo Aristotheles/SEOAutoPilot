@@ -24,9 +24,9 @@ $('#reviewBulkPublish').addEventListener('click',async()=>{
     if(!response.ok)throw Error(payload.error);
     if(payload.job?.status==='running'){await renderBulkStatus(id);return;}
     const r=payload.review;
-    const skippedDetails=r.skipped.length?`<details class="bulk-review" open><summary>${r.skipped.length} gerçek öneri neden yayınlanamıyor?</summary><div class="bulk-items">${r.skipped.map(i=>`<article><strong data-no-translate>${escapeHtml(i.title)}</strong><span>${escapeHtml(i.reason)}</span></article>`).join('')}</div></details>`:'';
-    const notReadyDetails=r.notReady?.length?`<details class="bulk-review"><summary>${r.notReady.length} kayıt öneri değil — henüz taslak hazırlanmamış</summary><div class="bulk-items">${r.notReady.map(i=>`<article><strong data-no-translate>${escapeHtml(i.title)}</strong><span>${escapeHtml(i.reason)}</span></article>`).join('')}</div></details>`:'';
-    if(!r.items.length){$('#bulkPublishContent').innerHTML=`<p><strong>Şu anda yayınlanabilecek hazır değişiklik yok.</strong></p>${skippedDetails}${notReadyDetails}`;return;}
+    const skippedDetails=r.skipped.length?`<details class="bulk-review" open><summary>${r.skipped.length} öneri senden karar bekliyor</summary><div class="bulk-items">${r.skipped.map(i=>`<article><strong data-no-translate>${escapeHtml(i.title)}</strong><span>${escapeHtml(i.reason)}</span><button type="button" class="outline-button" data-bulk-open-workflow="${escapeHtml(i.id)}">${i.action==='CTR_TEST'?'Başlık seçeneklerini incele':'Öneriyi incele'} →</button></article>`).join('')}</div></details>`:'';
+    const notReadyDetails=r.notReady?.length?`<details class="bulk-review"><summary>${r.notReady.length} işlem gerektirmeyen eski/ham kayıt</summary><p>Bunlar yayın önerisi değildir; senden işlem beklenmiyor.</p><div class="bulk-items">${r.notReady.map(i=>`<article><strong data-no-translate>${escapeHtml(i.title)}</strong><span>${escapeHtml(i.reason)}</span></article>`).join('')}</div></details>`:'';
+    if(!r.items.length){$('#bulkPublishContent').innerHTML=`<p><strong>Şu anda tek düğmeyle yayınlanabilecek hazır değişiklik yok.</strong></p><p>${r.skipped.length?'Aşağıdaki öneriyi inceleyip karar vermen gerekiyor.':'Senden beklenen bir işlem yok.'}</p>${skippedDetails}${notReadyDetails}`;return;}
     const lines=r.items.map((i,index)=>`${index+1}. ${i.title}\n   ${i.changes.map(c=>`${c.area}: ${String(c.proposed).slice(0,90)}`).join('\n   ')}`).join('\n\n');
     const accepted=window.confirm(`${r.items.length} sayfa canlıya yayınlanacak:\n\n${lines}\n\n${r.skipped.length} gerçek öneri ayrıca karar veya yenileme bekliyor. ${(r.notReady||[]).length} kayıt henüz öneri/taslak değil. Yalnız listelenen başlık, meta ve H1 değişiklikleri uygulanır. İlk hatada kalan kuyruk durur; yayınlanan sayfalar otomatik geri alınmaz.\n\nHepsini şimdi canlıya yayınla?`);
     if(!accepted){$('#bulkPublishContent').textContent='Toplu yayın başlatılmadı.';return;}
@@ -38,3 +38,4 @@ $('#reviewBulkPublish').addEventListener('click',async()=>{
   finally{if(state.project?.id===id&&!started)$('#reviewBulkPublish').disabled=false;}
 });
 document.addEventListener('click',event=>{if(event.target.closest('[data-view="workflows"]')&&state.project)renderBulkStatus(state.project.id);});
+document.addEventListener('click',event=>{const button=event.target.closest('[data-bulk-open-workflow]');if(button)openWorkflowDetail(button.dataset.bulkOpenWorkflow);});
