@@ -4,11 +4,14 @@ const {assertProfileWorkflow}=require('./profile-analysis');
 const {beginExecution,finishExecution,beginPublish,finishPublish,failExecution}=require('./workflow');
 const FIELDS=new Set(['title','meta','h1']);
 function plan(project){
-  const items=[],skipped=[],paths=new Set();
+  const items=[],skipped=[],notReady=[],paths=new Set();
   for(const w of project.workflows||[]){
     if(['PUBLISHED','MONITORING','COMPLETED','REJECTED'].includes(w.status)||w.execution?.appliedAt)continue;
+    if(!['AWAITING_APPROVAL','APPROVED','PREVIEW_READY'].includes(w.status)){
+      notReady.push({id:w.id,title:w.title,status:w.status,reason:'Henüz uygulanacak değişiklik taslağı hazırlanmamış.'});
+      continue;
+    }
     let reason='';try{assertProfileWorkflow(project,w);}catch(e){reason=e.message;}
-    if(!reason&&!['AWAITING_APPROVAL','APPROVED','PREVIEW_READY'].includes(w.status))reason='Bu görev toplu yayına hazır değil.';
     if(!reason&&w.action!=='UPDATE_EXISTING')reason='Yeni içerik, bekleme veya varyant seçimi gerektiriyor; ayrı incele.';
     const changes=(w.brief?.changes||[]).filter(c=>FIELDS.has(c.id));
     if(!reason&&(!changes.length||changes.some(c=>typeof c.proposed!=='string'||!c.proposed.trim())))reason='Uygulanabilir kesin değişiklik yok.';
@@ -17,7 +20,7 @@ function plan(project){
     paths.add(w.targetPath);items.push({id:w.id,title:w.title,targetPath:w.targetPath,changes,pending:(w.brief.changes||[]).filter(c=>!FIELDS.has(c.id)),briefHash:w.briefHash,profileRevision:w.profileRevision});
   }
   const token=crypto.createHash('sha256').update(JSON.stringify({site:project.siteUrl,profile:project.profile,connection:project.deployment,items})).digest('hex');
-  return {token,items,skipped};
+  return {token,items,skipped,notReady};
 }
 function createBulkPublisher(store,deployment){
   let running=false;
