@@ -197,19 +197,26 @@ function nextStepFor(workflow) {
   return 'Yeni veri eşiğini otomatik olarak bekle';
 }
 function renderWorkflows() {
+  const actionableStatuses = new Set(['AWAITING_APPROVAL','APPROVED','APPLYING',
+    'PREVIEW_READY','PUBLISHING','PUBLISHED','APPLIED','FAILED']);
+  const visibleWorkflows = state.workflows.filter((workflow) =>
+    actionableStatuses.has(workflow.status) && !workflow.blockedReason && workflow.action !== 'HOLD');
   const counts = state.workflows.reduce((result, workflow) => {
     result[workflow.status] = (result[workflow.status] || 0) + 1; return result;
   }, {});
-  const waiting = counts.AWAITING_APPROVAL || 0;
+  const visibleCounts = visibleWorkflows.reduce((result, workflow) => {
+    result[workflow.status] = (result[workflow.status] || 0) + 1; return result;
+  }, {});
+  const waiting = visibleCounts.AWAITING_APPROVAL || 0;
   $('#approvalCount').textContent = waiting;
-  $('#automatedCount').textContent = state.workflows.length;
+  $('#automatedCount').textContent = visibleWorkflows.length;
   $('#waitingCount').textContent = waiting;
-  $('#approvedCount').textContent = counts.APPROVED || 0;
+  $('#approvedCount').textContent = (visibleCounts.APPROVED || 0) + (visibleCounts.PREVIEW_READY || 0);
   $('#monitoringCount').textContent = counts.MONITORING || 0;
-  $('#workflowBoard').innerHTML = state.workflows.length ? state.workflows.map((workflow) => {
+  $('#workflowBoard').innerHTML = visibleWorkflows.length ? visibleWorkflows.map((workflow) => {
     const meta = workflowMeta[workflow.status] || workflowMeta.DISCOVERED;
     return `<article class="workflow-card"><span class="priority-rail ${workflow.priority.level}"></span><div class="workflow-copy"><div class="workflow-meta"><span class="priority-label">${workflow.priority.level} · P${workflow.priority.score}</span><span class="workflow-status ${meta.className}">${meta.label}</span></div><h3>${escapeHtml(workflow.title)}</h3><p>${escapeHtml(workflow.brief.action)}</p></div><div class="workflow-score"><strong>${workflow.priority.score}</strong><small>öncelik puanı</small></div><div class="workflow-next"><small>Sonraki adım</small><strong>${escapeHtml(nextStepFor(workflow))}</strong><div class="workflow-actions"><button class="outline-button" data-workflow-detail="${escapeHtml(workflow.id)}">Ayrıntıları incele →</button></div></div></article>`;
-  }).join('') : '<article class="panel workflow-empty">Bu proje için henüz otomatik görev oluşmadı. Önce Search Console verisini bağla.</article>';
+  }).join('') : '<article class="panel workflow-empty"><strong>Şu anda senden işlem bekleyen öneri yok.</strong><br>Performans izleme ve yeni veri bekleyen sayfalar arka planda takip ediliyor.</article>';
   $$('[data-workflow-detail]').forEach((button) => button.addEventListener('click', () =>
     openWorkflowDetail(button.dataset.workflowDetail)));
 }
