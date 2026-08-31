@@ -40,6 +40,15 @@ test('selecting a CTR title variant creates one exact approved title change', ()
   assert.throws(() => transition(workflow, 'select_variant', {variant:'c'}), /A veya B/);
 });
 
+test('an approved CTR draft can be closed while preserving the existing page', () => {
+  const workflow = syncWorkflows('project-1', {opportunities:[{...opportunity, action:'CTR_TEST'}]})[0];
+  const approved = transition(workflow, 'approve');
+  const kept = transition(approved, 'keep_existing');
+  assert.equal(kept.status, STATUS.rejected);
+  assert.equal(kept.approvedAt, null);
+  assert.match(kept.events.at(-1).label, /korundu/);
+});
+
 test('does not allow skipping required workflow stages', () => {
   const workflow = syncWorkflows('project-1', {opportunities: [opportunity]})[0];
   assert.throws(() => transition(workflow, 'complete'));

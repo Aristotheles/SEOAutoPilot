@@ -224,6 +224,7 @@ function workflowPreviewUrl(workflow) {
 }
 function workflowActionPanel(workflow, targetUrl) {
   if (workflow.blockedReason) return `<div class="connection-warning"><strong>Profil veya içerik dili kontrolü gerekli</strong><p>${escapeHtml(workflow.blockedReason)}</p></div><button class="outline-button" data-open-profile>Site profilini aç →</button>`;
+  if (workflow.action === 'CTR_TEST' && workflow.status === 'APPROVED') return `<div class="approval-box detail-approval"><strong>Önce mevcut sayfayla karşılaştır.</strong><br>Taslak mevcut başlık veya metadan daha iyi değilse değişiklik yapma. Bu seçim öneriyi kapatır ve canlı siteyi değiştirmez.</div><div class="detail-actions"><button class="modal-submit" data-workflow-action="keep_existing" data-workflow-id="${escapeHtml(workflow.id)}">Mevcut başlık ve metayı koru <span>→</span></button></div>`;
   if (workflow.status === 'PREVIEW_READY' && state.deploymentStatus?.capabilities?.production === false) {
     return `<div class="connection-warning"><div><strong>Değişiklikler hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Yayın bağlantısını doğrula</button></div>`;
   }

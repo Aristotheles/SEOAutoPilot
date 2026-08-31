@@ -163,6 +163,11 @@ function addEvent(workflow, type, label, now, actor = 'user') {
 function transition(workflow, action, options = {}) {
   if (workflow.blockedReason && ['approve','retry'].includes(action)) throw new Error(workflow.blockedReason);
   const now = options.now || new Date().toISOString();
+  if (action === 'keep_existing' && workflow.action === 'CTR_TEST' &&
+      [STATUS.awaitingApproval, STATUS.approved].includes(workflow.status)) {
+    return {...workflow,status:STATUS.rejected,approvedAt:null,updatedAt:now,
+      events:addEvent(workflow,'KEPT_EXISTING','Mevcut sayfa başlığı ve meta açıklaması korundu',now)};
+  }
   if (action === 'select_variant' && workflow.status === STATUS.awaitingApproval && workflow.action === 'CTR_TEST') {
     if (!['a', 'b'].includes(options.variant)) throw new Error('Başlık varyantı A veya B olmalı.');
     const selected = workflow.brief?.changes?.find((change) => change.id === `title-${options.variant}`);
