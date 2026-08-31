@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {publicConnection} = require('./deployment');
+const {defaultProfile, normalizeProfile} = require('./site-profile');
+const {LINGO_BACKLOG} = require('./seo-backlog');
 
 const DATA_DIR = process.env.SEO_AUTOPILOT_DATA_DIR ?
   path.resolve(process.env.SEO_AUTOPILOT_DATA_DIR) : path.join(__dirname, '..', 'data');
@@ -16,13 +18,38 @@ const starterProject = Object.freeze({
   lastSyncAt: null, lastSyncReport: null, workflows: [], deployment: null,
 });
 
-function initialState() { return {schemaVersion: 1, projects: [{...starterProject}]}; }
+function migrateProject(project) {
+  if (project.profile) return project;
+  const profile = defaultProfile(project);
+  // A migration of an existing known project, not a rule for newly connected sites.
+  if (project.id === 'lingodecoder' && project.siteUrl === 'https://lingodecoder.de') {
+    profile.analysisPreset = 'legacy_lingodecoder';
+    profile.editorialBacklog = LINGO_BACKLOG;
+    profile.languageRoutes = [{prefix:'/tr/', language:'tr'}, {prefix:'/en/', language:'en'}];
+  }
+  return {...project, profile};
+}
+function initialState() { return {schemaVersion: 2, projects: [migrateProject({...starterProject})]}; }
 function readState() {
   if (!fs.existsSync(STATE_FILE)) return initialState();
+  let value;
   try {
-    const value = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    return Array.isArray(value.projects) ? value : initialState();
-  } catch (_) { return initialState(); }
+    value = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+  } catch (_) { throw new Error('Proje veri dosyası okunamıyor. Dosya korunuyor; otomatik sıfırlama yapılmadı.'); }
+  if (!Array.isArray(value.projects) || value.projects.some(p => !p || typeof p.id !== 'string') ||
+      new Set(value.projects.map(p=>p.id)).size !== value.projects.length ||
+      ![1,2].includes(value.schemaVersion)) throw new Error('Proje veri şeması geçersiz veya desteklenmiyor; dosya korunuyor.');
+  if (value.schemaVersion === 1) {
+    const migrated = {...value, schemaVersion:2, projects:value.projects.map(migrateProject)};
+    const backup = path.join(DATA_DIR, 'backups');
+    fs.mkdirSync(backup, {recursive:true});
+    fs.writeFileSync(path.join(backup, `projects-v1-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.json`),
+      fs.readFileSync(STATE_FILE), {mode:0o600, flag:'wx'});
+    writeState(migrated);
+    return migrated;
+  }
+  if (value.projects.some(p=>!p.profile || p.profile.version !== 1 || !Array.isArray(p.profile.languages))) throw new Error('Site profili veri şeması geçersiz; dosya korunuyor.');
+  return value;
 }
 function writeState(state) {
   fs.mkdirSync(DATA_DIR, {recursive: true});
@@ -48,7 +75,7 @@ function createProject(input) {
   const siteUrl = String(input.siteUrl || '').trim().replace(/\/$/u, '');
   if (name.length < 2) throw new Error('Proje adı en az 2 karakter olmalı.');
   let hostname;
-  try { hostname = new URL(siteUrl).hostname; } catch (_) {
+  try { const parsed = new URL(siteUrl); if (!['http:','https:'].includes(parsed.protocol) || parsed.username || parsed.password || !parsed.hostname) throw new Error(); hostname = parsed.hostname; } catch (_) {
     throw new Error('Geçerli bir site adresi gir. Örnek: https://example.com');
   }
   const state = readState();
@@ -61,9 +88,10 @@ function createProject(input) {
   const now = new Date().toISOString();
   const project = {id, name, siteUrl,
     searchConsoleProperty: `sc-domain:${hostname.replace(/^www\./u, '')}`,
-    locales: Array.isArray(input.locales) && input.locales.length ? input.locales : ['tr'],
+    locales: [],
     status: 'active', createdAt: now, updatedAt: now, csvDirectory: '', oauth: null,
     lastSyncAt: null, lastSyncReport: null, workflows: [], deployment: null};
+  project.profile = defaultProfile(project);
   state.projects.push(project);
   writeState(state);
   return publicProject(project);
@@ -72,12 +100,31 @@ function updateProject(id, updates) {
   const state = readState();
   const index = state.projects.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Proje bulunamadı.');
-  const allowed = ['name', 'siteUrl', 'searchConsoleProperty', 'locales',
+  const allowed = ['name', 'siteUrl', 'searchConsoleProperty',
     'csvDirectory', 'oauth', 'lastSyncAt', 'lastSyncReport', 'workflows', 'deployment'];
   const clean = Object.fromEntries(Object.entries(updates)
       .filter(([key]) => allowed.includes(key)));
   state.projects[index] = {...state.projects[index], ...clean,
     updatedAt: new Date().toISOString()};
+  writeState(state);
+  return publicProject(state.projects[index]);
+}
+function saveProfile(id, input, expectedRevision) {
+  const state = readState();
+  const index = state.projects.findIndex(p=>p.id === id);
+  const project = state.projects[index];
+  assertProjectIdle(project);
+  if (expectedRevision !== project.profile.revision) throw new Error('Profil başka bir işlemde değişti. Sayfayı yenileyip tekrar dene.');
+  const profile = normalizeProfile(input, project);
+  const now = new Date().toISOString();
+  const workflows = (project.workflows || []).map(workflow => {
+    if (workflow.execution?.appliedAt || ['PUBLISHED','MONITORING','COMPLETED','APPLIED'].includes(workflow.status)) return workflow;
+    return {...workflow, status:workflow.status === 'PLANNED' ? 'PLANNED' : 'AWAITING_APPROVAL',
+      approvedAt:null, execution:null, profileRevision:null, updatedAt:now,
+      events:[...(workflow.events || []), {type:'PROFILE_CHANGED', actor:'system', at:now,
+        label:'Site profili değişti; eski taslak ve önizleme onayı geçersizleşti.'}]};
+  });
+  state.projects[index] = {...project, profile, locales:profile.languages, workflows, updatedAt:now};
   writeState(state);
   return publicProject(state.projects[index]);
 }
@@ -103,4 +150,4 @@ function clearAllOAuth() {
 }
 
 module.exports = {assertProjectIdle, clearAllOAuth, createProject, getPrivateProject,
-  getProject, listProjects, publicProject, removeProject, updateProject};
+  getProject, listProjects, publicProject, removeProject, updateProject, saveProfile};

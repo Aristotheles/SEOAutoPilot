@@ -27,7 +27,7 @@ test('fresh analysis and cached reports produce clean labels while preserving ex
   assert.equal(normalizeReport(cached).opportunities[0].label, item.label);
   assert.equal(cached.opportunities[0].label, 'German B1 Vs B2.Html');
   for (const action of ['UPDATE_EXISTING', 'CTR_TEST']) {
-    const data = {opportunities: [{...cached.opportunities[0], action}]};
+    const data = {opportunities: [{...cached.opportunities[0], action, locale:'en'}]};
     const current = syncWorkflows('example', data)[0];
     assert.ok(current.brief.changes.every(c => !/\.html/i.test(c.proposed)));
     assert.equal(current.targetPath, item.targetPath);

@@ -42,13 +42,14 @@ function idFor(projectId, item) {
       .digest('hex').slice(0, 14);
 }
 
-function mergeEditorialBacklog(projectId, activeWorkflows, existing = []) {
-  if (projectId !== 'lingodecoder') return activeWorkflows;
+function mergeEditorialBacklog(projectId, activeWorkflows, existing = [], profile) {
+  const backlog = profile?.editorialBacklog || [];
+  if (!backlog.length) return activeWorkflows;
   const activePaths = new Set(activeWorkflows.map((item) => item.targetPath));
   const previous = new Map(existing.filter((item) => item.source === 'editorial_backlog')
       .map((item) => [item.id, item]));
   const now = new Date().toISOString();
-  const planned = LINGO_BACKLOG.filter((item) => !activePaths.has(item.targetPath))
+  const planned = backlog.filter((item) => !activePaths.has(item.targetPath))
       .map((item) => {
         const id = idFor(projectId, item); const old = previous.get(id);
         return {id, projectId, source: 'editorial_backlog', opportunityId: null,

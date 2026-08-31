@@ -15,7 +15,7 @@ const actionMeta = {
 const confidenceLabel = {very_low: 'Çok düşük', low: 'Düşük', medium: 'Orta', high: 'Yüksek', very_high: 'Çok yüksek'};
 const viewLabels = {overview: 'Genel bakış', opportunities: 'Fırsatlar',
   workflows: 'Onay kuyruğu', queries: 'Sorgular', pages: 'Sayfalar',
-  data: 'Veri kaynakları'};
+  data: 'Veri kaynakları', profile:'Site profili'};
 const workflowMeta = {
   PLANNED: {label: 'İçerik planında', className: 'planned'},
   DISCOVERED: {label: 'Otomatik izleniyor', className: 'discovered'},
@@ -159,7 +159,7 @@ function renderDataState() {
   const live = state.mode === 'live' || state.mode === 'api';
   const lastSyncAt = state.project?.lastSyncAt;
   $('#dataStatus').classList.toggle('live', live);
-  const statusText = state.mode === 'api' ? 'API senkronize' : live ? 'Gerçek veri' : 'Demo veri';
+  const statusText = state.mode === 'api' ? 'API senkronize' : live ? 'Gerçek veri' : state.mode === 'demo' ? 'Demo veri' : 'Veri bekleniyor';
   $('#dataStatus').innerHTML = `<i></i> ${statusText}${lastSyncAt ? ` · ${escapeHtml(formatDateTime(lastSyncAt, true))}` : ''}`;
   $('#sourcePath').textContent = state.mode === 'live' ? state.directory :
     state.mode === 'api' ? 'API verisi kullanılıyor.' : 'Bu proje için henüz gerçek veri yok.';
@@ -182,6 +182,7 @@ function renderDataState() {
     'Onaylanan değişikliklerin gerçekten uygulanması için yerel Git ve yayınlama bağlantısı gerekir.';
 }
 function nextStepFor(workflow) {
+  if (workflow.blockedReason) return workflow.blockedReason;
   if (workflow.status === 'PLANNED') return 'Arama niyetini doğrula ve ayrıntılı taslak hazırla';
   if (workflow.status === 'AWAITING_APPROVAL') return 'Önerilen değişikliklerin tümünü incele';
   if (workflow.status === 'APPROVED') return 'Site güncelleme bağlantısını kur';
@@ -222,6 +223,7 @@ function workflowPreviewUrl(workflow) {
   catch (_) { return workflow.execution?.previewUrl || workflowTargetUrl(workflow); }
 }
 function workflowActionPanel(workflow, targetUrl) {
+  if (workflow.blockedReason) return `<div class="connection-warning"><strong>Profil veya içerik dili kontrolü gerekli</strong><p>${escapeHtml(workflow.blockedReason)}</p></div><button class="outline-button" data-open-profile>Site profilini aç →</button>`;
   if (workflow.status === 'PREVIEW_READY' && state.deploymentStatus?.capabilities?.production === false) {
     return `<div class="connection-warning"><div><strong>Önizleme hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflowPreviewUrl(workflow))}" target="_blank" rel="noopener">Hedef sayfa önizlemesini gör ↗</a><button class="modal-submit" disabled>Yayın bağlantısını doğrula</button></div>`;
   }
@@ -268,7 +270,7 @@ function openWorkflowDetail(id) {
 }
 function closeWorkflowDetail() { $('#workflowDetailModal').hidden = true; }
 function renderAll() { renderOverview(); renderOpportunities(); renderQueries();
-  renderPages(); renderDataState(); renderWorkflows(); }
+  renderPages(); renderDataState(); renderWorkflows(); renderSiteProfile(); }
 
 function initials(name) {
   const words = String(name || '').trim().split(/\s+/u).filter(Boolean);
@@ -390,6 +392,7 @@ async function loadProjects(autoSync = true) {
     fetch('/api/projects'), fetch('/api/google/status'),
   ]);
   const projectsPayload = await projectsResponse.json();
+  if (!projectsResponse.ok) throw new Error(projectsPayload.error || 'Proje verisi okunamadı.');
   state.projects = projectsPayload.projects || [];
   state.googleStatus = await googleResponse.json();
   const requested = new URLSearchParams(location.search).get('project');
@@ -428,15 +431,18 @@ async function createNewProject() {
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
     state.projects.push(payload.project); $('#projectNameInput').value = ''; $('#projectUrlInput').value = '';
     await selectProject(payload.project.id);
+    setView('profile');
   } catch (exception) { error.textContent = exception.message; }
   finally { button.disabled = false; }
 }
 async function importReport() {
+  const projectId = state.project.id;
   const button = $('#importSubmit'); const error = $('#importError');
   button.disabled = true; button.textContent = 'Analiz ediliyor…'; error.textContent = '';
   try {
-    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({directory: $('#directoryInput').value})});
+    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({directory: $('#directoryInput').value})});
     const payload = await response.json();
+    if (state.project?.id !== projectId) return;
     if (!response.ok) throw new Error(payload.error || 'İçe aktarma başarısız.');
     Object.assign(state, payload);
     if (payload.project) updateCurrentProject(payload.project);
@@ -501,10 +507,12 @@ async function saveGoogleConfig() {
   } catch (exception) { error.textContent = exception.message; }
 }
 async function syncGoogle(automatic = false) {
+  const projectId = state.project.id;
   const button = $('#googleAction'); button.disabled = true; button.textContent = 'Senkronize ediliyor…';
   try {
-    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/google/sync`, {method: 'POST'});
+    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/google/sync`, {method: 'POST'});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    if (state.project?.id !== projectId) return true;
     Object.assign(state, payload);
     if (payload.project) updateCurrentProject(payload.project);
     await loadWorkflows(); renderAll(); showToast(`Search Console güncellendi: ${formatDateTime(state.project.lastSyncAt)}`);
@@ -540,19 +548,20 @@ async function connectGoogle() {
 }
 function openDeploymentModal() {
   $('#repositoryPathInput').value = state.deploymentStatus?.connection?.repositoryPath ||
-    state.project?.deployment?.repositoryPath || (state.project?.id === 'lingodecoder' ?
-      'C:\\LingoDecoder' : '');
+    state.project?.deployment?.repositoryPath || '';
   $('#deploymentError').textContent = state.deploymentStatus?.error || state.deploymentStatus?.publicationWarning || '';
   $('#deploymentModal').hidden = false;
 }
 async function saveDeployment() {
+  const projectId = state.project.id;
   const button = $('#saveDeployment'); const error = $('#deploymentError');
   button.disabled = true; error.textContent = ''; button.textContent = 'Doğrulanıyor…';
   try {
-    const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/deployment`,
+    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/deployment`,
         {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
           repositoryPath: $('#repositoryPathInput').value})});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
+    if (state.project?.id !== projectId) return;
     state.deploymentStatus = payload.deployment;
     if (payload.project) updateCurrentProject(payload.project);
     renderDataState(); $('#deploymentModal').hidden = true;

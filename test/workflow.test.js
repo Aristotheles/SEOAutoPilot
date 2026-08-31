@@ -6,7 +6,7 @@ const {STATUS, beginExecution, beginPublish, failExecution, finishExecution, fin
   priorityFor, recoverPreview, syncWorkflows,
   transition} = require('../src/workflow');
 
-const opportunity = {clusterId: 'growth', label: 'Growth guide',
+const opportunity = {clusterId: 'growth', label: 'Growth guide', locale:'en',
   action: 'UPDATE_EXISTING', productFit: 5, targetPath: '/growth-guide',
   confidence: 'high', reason: 'Sayfa güçlendirilmeli.',
   queryMetrics: {impressions: 180, position: 18},
@@ -72,10 +72,10 @@ test('includes concrete proposed changes before approval', () => {
 });
 
 test('uses target locale for proposed copy', () => {
-  const turkish = {...opportunity, clusterId: 'articles', label: 'Almanca artikeller',
+  const turkish = {...opportunity, clusterId: 'articles', label: 'Almanca artikeller', locale:'tr',
     targetPath: '/tr/blog/almanca-artikeller'};
   const workflow = syncWorkflows('project-1', {opportunities: [turkish]})[0];
-  assert.match(workflow.brief.changes[0].proposed, /Kurallar, Mantık ve Örnekler/u);
+  assert.match(workflow.brief.changes[1].proposed, /hakkında bilgiler/u);
 });
 
 test('keeps failed preview work transparent and retryable', () => {

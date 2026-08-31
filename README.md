@@ -1,7 +1,6 @@
 # SEOAutoPilot
 
-LingoDecoder için insan onaylı Search Console fırsat motoru ve yerel SEO
-komuta merkezi.
+Birden fazla site için proje bazlı, insan onaylı Search Console fırsat motoru.
 
 ## Arayüz
 
@@ -11,8 +10,8 @@ Uygulamayı başlat:
 npm start
 ```
 
-Ardından `http://127.0.0.1:4173` adresini aç. İlk açılışta arayüz demo veriyle
-çalışır. Sağ üstteki **Veri içe aktar** düğmesiyle Search Console dışa aktarım
+Ardından `http://127.0.0.1:4173` adresini aç. Rapor bağlanmamış projeler veri
+bekliyor olarak gösterilir. Sağ üstteki **Veri içe aktar** düğmesiyle Search Console dışa aktarım
 klasörünün tam yolunu girerek gerçek raporu analiz edebilirsin.
 
 Arayüzde:
@@ -159,8 +158,41 @@ npm run analyze -- "C:\path\to\Search-Console-export" `
 
 `reports/*.json` Git'e alınmaz; Search Console verisi özel kalır.
 
-## Sonraki aşama
+## Site profili — 0.7.0
 
-CSV ve Search Console API aynı ortak veri modeline bağlanacaktır. API erişimi
-eklenene kadar mevcut dışa aktarımlar gerçek karar motorunu test etmek için
-kullanılabilir.
+**Site profili** ekranından her projenin içerik dillerini, ana dilini, ilk ziyaret
+varsayılanını, açılış tercihini, hedef pazarlarını ve marka bilgilerini kaydet.
+Bir yazının bütün dillere çevrilmesi zorunlu değildir. İngilizce varsayılan açılış,
+bütün yazıların İngilizce olduğu anlamına gelmez. Dili belirsiz veya kuralları
+çelişen sayfalarda taslak onayı ve yayın durur; URL–dil eşleştirmesi gerekir.
+
+Profil kullanıcı tarafından doğrulanmadan yeni yayın işlemleri kapalıdır. Profil
+değişince henüz uygulanmamış önerilerin onayı/önizleme yetkisi sıfırlanır. Yayın
+geçmişi korunur; yayın sırasında profil değiştirilemez. Eşzamanlı eski form
+kayıtları sürüm kontrolüyle reddedilir.
+
+Yeni projelerde Almanca eğitim veya belirli marka varsayımı yoktur. Mevcut
+LingoDecoder içerik planı ve eski konu eşleştirmeleri yalnız o projenin geçiş
+profilinde korunur; kullanıcı konu eşleştirmelerini kapatabilir. Taslaklar
+kural tabanlı başlangıç önerileridir, kaynak sayfa doğrulaması veya AI analizi
+değildir. Taslak desteği şimdilik Türkçe, İngilizce ve Almancadır; diğer diller
+kaydedilebilir ama sessizce İngilizce taslak üretilmez.
+
+İlk veri okumasında eski proje dosyasının birebir yedeği `data/backups/` içine
+alınır ve şema 2'ye geçilir. Tokenlar, bağlantılar, raporlar ve görev geçmişi
+korunur. Yedekler özel veri içerir; Git'e alınmaz. Bozuk dosya sıfırlanmaz.
+
+Bu aşama yalnız SEOAutoPilot ayarlarını değiştirir. Bağlı sitelerde dil seçimi,
+yönlendirme, tasarım veya içerik değişikliği yapmaz; Googlebot'un hangi dili
+gördüğünü doğruladığı iddia edilmez.
+
+## Sıradaki aşamalar
+
+1. Kaynak/canlı URL envanteri: gerçek dil, karşılık sayfalar, canonical,
+   hreflang, sitemap ve yönlendirme kontrolü; otomatik dil keşfi.
+2. Sayfa dili ile ziyaretçi ülkesini ayıran Search Console analizi; yeterli
+   kanıt yoksa öneriyi bekletme.
+3. Projenin mevcut tasarımına uyan değişiklik farkı ve önizleme doğrulaması;
+   kaynak değişiklikleri ve canlı yayın için ayrı kullanıcı onayı.
+4. Yayın sonrası gerçek verilerle etki takibi; mevcut LingoDecoder içerik
+   iyileştirme kuyruğunu koruma.

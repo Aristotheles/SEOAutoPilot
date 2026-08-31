@@ -42,6 +42,7 @@
           Sayfalar
         </button>
         <p class="nav-label nav-label-second">Sistem</p>
+        <button class="nav-item" data-view="profile"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5"/></svg>Site profili</button>
         <button class="nav-item" data-view="data">
           <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
           Veri kaynakları
@@ -82,6 +83,35 @@
 
       <section class="panel empty-project-panel" id="emptyProjectPanel" hidden><h1>Henüz proje yok</h1><p>Yeni bir proje ekleyebilirsin. Kaldırdığın sitelerin kendisi ve kaynak dosyaları silinmez.</p><button class="primary-button" data-open-projects>Proje ekle</button><button class="danger-button" data-remove-connection="google-config">Ortak Google OAuth bilgilerini sil</button></section>
       <div class="content">
+        <section class="view" id="view-profile">
+          <div class="page-heading"><div><p class="eyebrow">PROJEYE ÖZEL KURALLAR</p><h1>Site profili</h1><p id="profileProjectLabel"></p></div></div>
+          <div class="panel profile-notice"><strong id="profileStatus">Kontrol bekliyor</strong><p>Bu ayarlar yalnız SEOAutoPilot'ın analiz ve önerilerini yönlendirir. Kaydetmek sitenin kodunu, dilini, yönlendirmesini veya yayınını değiştirmez. Google'ın ne gördüğü bu ekranda doğrulanmış sayılmaz.</p></div>
+          <form id="siteProfileForm" class="profile-form">
+            <section class="panel profile-section"><h2>Marka ve hedef</h2><div class="profile-grid">
+              <label>Marka adı<input id="profileBrand" required maxlength="120"></label>
+              <label>Başarı hedefi<input id="profileObjective" maxlength="1000" placeholder="Üyelik, satış, başvuru…"></label>
+              <label>Site ne sunuyor?<textarea id="profileDescription" maxlength="1000" rows="3"></textarea></label>
+              <label>Hedef kitle<textarea id="profileAudience" maxlength="1000" rows="3"></textarea></label>
+              <label>İçerik üslubu<input id="profileTone" maxlength="1000" placeholder="Sade, açıklayıcı, profesyonel…"></label>
+            </div><p class="profile-help">Bu bilgiler proje bağlamını kaydeder. Bu pakette taslaklar kural tabanlıdır; yapay zekâ ile kişiselleştirilmiş metin üretimi henüz yapılmaz.</p></section>
+            <section class="panel profile-section"><h2>Diller ve ilk açılış</h2><div class="profile-grid">
+              <label>İçerik dilleri<input id="profileLanguages" required placeholder="tr, en veya yalnız en"></label>
+              <label>Ana içerik dili<input id="profilePrimary" required placeholder="Örn. tr"></label>
+              <label>Tercih bilinmediğinde açılacak dil<input id="profileFallback" required placeholder="Örn. en"></label>
+              <label>Açılış davranışı<select id="profileOpening"><option value="preserve_existing">Mevcut davranışı koru</option><option value="fixed">Herkese aynı dil</option><option value="browser_language">Tarayıcı diline göre</option><option value="country_rules">Ülke kurallarına göre</option><option value="language_selector">Dil seçme ekranı</option></select></label>
+              <label>İçerik kapsamı<select id="profileCoverage"><option value="per_content">Her içeriğin dilleri ayrı seçilebilir</option><option value="all_languages">Yeni içerikleri bütün proje dillerinde planla</option></select></label>
+              <label class="profile-check"><input type="checkbox" id="profileRemember">Önceki kullanıcı seçimini koru</label>
+              <label>Ülkeye göre açılış kuralları<textarea id="profileCountries" rows="3" placeholder="TR = tr&#10;DE = en"></textarea></label>
+              <label>Hedef pazarlar — ülke ve dil<textarea id="profileMarkets" rows="3" placeholder="DE = tr&#10;US = en"></textarea></label>
+            </div><p class="profile-help">Ülke ve dil farklı şeylerdir. Kurallar mevcut site tercihinizin kaydıdır; ülke tespiti veya yönlendirme kurulmaz. Doğrudan dil adresi her zaman korunur. İçerik kapsamı seçimi otomatik çeviri başlatmaz.</p></section>
+            <section class="panel profile-section"><h2>URL ve içerik dili eşleşmeleri</h2><div class="profile-grid">
+              <label>Dil klasörleri<textarea id="profileRoutes" rows="5" placeholder="/tr/ = tr&#10;/en/ = en"></textarea></label>
+              <label>Özel sayfa eşleşmeleri<textarea id="profilePages" rows="5" placeholder="/blog/example.html = en&#10;/blog/ornek.html = tr"></textarea></label>
+            </div><p class="profile-help">Her satıra bir eşleşme gir. Çok dilli bir sitede dili belli olmayan sayfa İngilizce varsayılmaz; taslak bekletilir. Ana açılış dili, bütün sayfaların içerik dili değildir. Otomatik sayfa envanteri sonraki pakettedir.</p></section>
+            <section class="panel profile-section"><h2>Tasarım ve mevcut plan</h2><label>Tasarım notları<textarea id="profileDesign" rows="3" maxlength="2000" placeholder="Ortak stil dosyası, fontlar, korunacak kurallar…"></textarea></label><p class="profile-help">Mevcut tasarım korunur. Bu alan henüz otomatik tasarım doğrulaması çalıştırmaz.</p><label class="profile-check" id="profileLegacyRow" hidden><input type="checkbox" id="profileLegacy">Bu projeden taşınan mevcut konu analizini koru</label><p id="profileBacklog" class="profile-help"></p></section>
+            <div class="panel profile-section"><label class="profile-check"><input type="checkbox" id="profileConfirm" required>Bu profilin seçili projeye ait olduğunu doğruluyorum. Önceki taslak ve önizleme onaylarının yeniden isteneceğini biliyorum.</label><p id="profileError" class="form-error" role="alert"></p><button type="submit" class="primary-button" id="saveSiteProfile">Profili doğrula ve kaydet</button></div>
+          </form>
+        </section>
         <section class="view active" id="view-overview">
           <div class="page-heading">
             <div><p class="eyebrow">SEO KOMUTA MERKEZİ</p><h1>Günaydın, Şenol <span>👋</span></h1><p>Bugün büyümeyi hızlandırabilecek <strong id="headingOpportunityCount">4 SEO sinyali</strong> var.</p></div>
@@ -112,7 +142,7 @@
                 </svg>
                 <div class="x-axis" id="chartXAxis"><span>24 Ağu</span><span>25 Ağu</span><span>26 Ağu</span><span>27 Ağu</span><span>28 Ağu</span><span>29 Ağu</span></div>
               </div>
-              <div class="chart-insight"><span>✦</span><p><strong>İlk yorum:</strong> Google sayfaları keşfetmeye başladı. Henüz trend kararı vermek için erken; veri toplamaya devam et.</p></div>
+              <div class="chart-insight"><span>✦</span><p><strong>İlk yorum:</strong> Performans verileri tek başına tüm sayfaların tarandığını doğrulamaz. Önerilerin veri kaynağını ve dönemini kontrol et.</p></div>
             </article>
 
             <article class="panel focus-panel">
@@ -132,8 +162,8 @@
             </article>
             <article class="panel system-panel">
               <div class="panel-header"><div><span class="card-kicker">SİSTEM DURUMU</span><h2>Autopilot kontrolleri</h2></div><span class="live-dot">CANLI</span></div>
-              <div class="system-row"><span class="system-check">✓</span><div><strong>CSV analiz motoru</strong><small>Veriler başarıyla işlendi</small></div><b>Hazır</b></div>
-              <div class="system-row"><span class="system-check">✓</span><div><strong>Fırsat kümeleri</strong><small>Arama niyeti eşleştiriliyor</small></div><b>Hazır</b></div>
+              <div class="system-row"><span class="system-check">✓</span><div><strong>CSV analiz motoru</strong><small>İçe aktarılan verileri işler</small></div><b>Hazır</b></div>
+              <div class="system-row"><span class="system-check">✓</span><div><strong>Fırsat kümeleri</strong><small>Proje profiline göre değerlendirilir</small></div><b>Hazır</b></div>
               <div class="system-row"><span class="system-lock">⌁</span><div><strong>İnsan onayı</strong><small>Yayın öncesi zorunlu kontrol</small></div><b>Aktif</b></div>
               <div class="system-footer"><span>Son analiz</span><strong id="lastAnalysis">Bugün, 12:00</strong></div>
             </article>
@@ -200,7 +230,7 @@
       <div class="modal-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
       <p class="eyebrow">SEARCH CONSOLE</p><h2 id="importTitle">Yeni veriyi içe aktar</h2><p>Google'dan indirdiğin performans klasörünün tam yolunu gir.</p>
       <label for="directoryInput">CSV klasör yolu</label>
-      <input id="directoryInput" value="C:\Users\senol\Downloads\https___lingodecoder.de_-Performance-on-Search-2026-08-29" spellcheck="false">
+      <input id="directoryInput" placeholder="Search Console CSV klasörünün tam yolu" spellcheck="false">
       <div class="modal-note"><span>i</span> Veriler yalnızca bu bilgisayarda işlenir ve GitHub'a eklenmez.</div>
       <button class="primary-button modal-submit" id="importSubmit">Analizi başlat <span>→</span></button>
       <p class="form-error" id="importError"></p>
@@ -267,5 +297,6 @@
   <aside class="detail-drawer" id="detailDrawer" aria-hidden="true"><button class="drawer-close" id="drawerClose">×</button><div id="drawerContent"></div></aside>
   <div class="toast" id="toast"><span>✓</span><p></p></div>
   <script src="/app.js" defer></script>
+  <script src="/profile.js" defer></script>
 </body>
 </html>

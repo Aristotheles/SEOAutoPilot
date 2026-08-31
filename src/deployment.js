@@ -207,7 +207,9 @@ function applyWorkflowChanges(workflow, root) {
   const title = changes.get('title');
   if (title) {
     const current = html.match(/<title>([^<]+)<\/title>/u)?.[1] || '';
-    const suffix = /\s+[—|-]\s+LingoDecoder$/u.test(current) ? ' — LingoDecoder' : '';
+    const brand = String(workflow.brandName || '').trim();
+    const suffix = brand && current.endsWith(brand) && /\s[—|\-]\s$/u.test(current.slice(0, -brand.length)) &&
+      !String(title.proposed).endsWith(brand) ? ` — ${brand}` : '';
     html = replaceRequired(html, /<title>[^<]+<\/title>/u,
         `<title>${htmlEscape(title.proposed)}${suffix}</title>`, 'SEO başlığı');
     applied.push(title.id);

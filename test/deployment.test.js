@@ -62,7 +62,7 @@ test('applies only exact approved HTML fields and reports pending editorial work
   const filePath = path.join(articleDirectory, 'ornek.html');
   fs.writeFileSync(filePath, '<title>Eski — LingoDecoder</title>\n' +
     '<meta name="description" content="Eski açıklama">\n<h1>Eski</h1><p>Gövde</p>');
-  const workflow = {targetPath: '/tr/blog/ornek', brief: {changes: [
+  const workflow = {targetPath: '/tr/blog/ornek', brandName:'LingoDecoder', brief: {changes: [
     {id: 'title', proposed: 'Yeni başlık'}, {id: 'meta', proposed: 'Yeni açıklama'},
     {id: 'h1', proposed: 'Yeni H1'}, {id: 'sections', proposed: 'Editoryal taslak'},
   ]}};

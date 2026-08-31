@@ -58,3 +58,17 @@
 .empty-project-panel{margin:24px;padding:24px}.empty-project-panel button{margin:8px}
 .content[hidden],.empty-project-panel[hidden]{display:none!important}
 @media(max-width:700px){.connection-removal-grid{grid-template-columns:1fr}.connection-management{padding:16px}}
+/* Site profile: readable project-scoped configuration, never a site editor. */
+.profile-form {display:grid; gap:20px; margin-top:20px;}
+.profile-section,.profile-notice {padding:26px;}
+.profile-section h2 {font-size:22px;margin:0 0 20px;}
+.profile-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;}
+.profile-form label {display:flex;flex-direction:column;gap:9px;font-size:15px;font-weight:600;}
+.profile-form input:not([type=checkbox]),.profile-form textarea,.profile-form select {width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d5dce9;border-radius:12px;font:inherit;font-size:16px;color:#10182d;background:#fff;}
+.profile-form textarea {resize:vertical;}
+.profile-form .profile-check {display:flex;flex-direction:row;align-items:center;gap:12px;line-height:1.6;}
+.profile-form [hidden] {display:none!important;}
+.profile-check input {width:20px;height:20px;flex-shrink:0;}
+.profile-help,.profile-notice p {font-size:15px;line-height:1.7;color:#53617c;}
+.profile-form :focus-visible {outline:3px solid #7864ed;outline-offset:2px;}
+@media(max-width:760px){.profile-grid{grid-template-columns:1fr;}.profile-section,.profile-notice{padding:20px;}}

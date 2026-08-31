@@ -7,10 +7,10 @@ const {URL} = require('node:url');
 const {loadExport} = require('./src/importer');
 const {analyzeExport} = require('./src/engine');
 const {normalizeReport} = require('./src/page-label');
-const {demoReport} = require('./src/demo-report');
-const {createProject, getPrivateProject, listProjects, updateProject} =
+const {createProject, getPrivateProject, listProjects, updateProject, saveProfile} =
   require('./src/project-store');
 const google = require('./src/google-search-console');
+const {analysisOptions, reanalyzeReport, assertProfileWorkflow} = require('./src/profile-analysis');
 const connections = require('./src/connection-management');
 const deployment = require('./src/deployment');
 const {mergeEditorialBacklog} = require('./src/seo-backlog');
@@ -50,17 +50,17 @@ function emptyReport(project) {
     opportunities: [], unclusteredQueries: []};
 }
 function projectReport(project) {
-  if (project.lastSyncReport) return {report: normalizeReport(project.lastSyncReport), directory: '', mode: 'api'};
+  if (project.lastSyncReport) return {report: normalizeReport(reanalyzeReport(project.lastSyncReport, project)), directory: '', mode: 'api'};
   if (project.csvDirectory) {
     const loaded = loadExport(project.csvDirectory,
-        {clusters: project.id === 'lingodecoder' ? undefined : []});
+        analysisOptions(project));
     return {report: loaded.report, directory: loaded.directory, mode: 'live'};
   }
-  return {report: project.id === 'lingodecoder' ? demoReport : emptyReport(project),
-    directory: '', mode: project.id === 'lingodecoder' ? 'demo' : 'empty'};
+  return {report: emptyReport(project), directory:'', mode:'empty'};
 }
 function projectWorkflows(projectId, report, existing = []) {
-  return mergeEditorialBacklog(projectId, syncWorkflows(projectId, report, existing), existing);
+  const profile = getPrivateProject(projectId)?.profile;
+  return mergeEditorialBacklog(projectId, syncWorkflows(projectId, report, existing, profile), existing, profile);
 }
 function serveStatic(requestUrl, response) {
   const pathname = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
@@ -132,7 +132,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.6.6'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.7.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -143,6 +143,15 @@ async function routeApi(request, response, requestUrl) {
     return true;
   }
   const deploymentId = projectIdFrom(requestUrl.pathname, 'deployment');
+  const profileId = projectIdFrom(requestUrl.pathname, 'profile');
+  if (profileId && request.method === 'PUT') {
+    try {
+      const payload = await readBody(request);
+      const project = saveProfile(profileId, payload.profile, payload.expectedRevision);
+      json(response, 200, {project});
+    } catch (error) { json(response, 400, {error:error.message}); }
+    return true;
+  }
   if (deploymentId && request.method === 'GET') {
     const project = getPrivateProject(deploymentId);
     if (!project) json(response, 404, {error: 'Proje bulunamadı.'});
@@ -217,6 +226,7 @@ async function routeApi(request, response, requestUrl) {
       const workflows = [...(project.workflows || [])];
       const index = workflows.findIndex((item) => item.id === workflowId);
       if (index < 0) throw new Error('Görev bulunamadı.');
+      if (['approve','retry'].includes(payload.action)) assertProfileWorkflow(project, workflows[index]);
       workflows[index] = transition(workflows[index], payload.action);
       updateProject(project.id, {workflows});
       json(response, 200, {workflow: workflows[index]});
@@ -232,6 +242,7 @@ async function routeApi(request, response, requestUrl) {
       const project = getPrivateProject(projectId);
       if (!project?.deployment) throw new Error('Site güncelleme bağlantısı kurulmamış.');
       const workflow = updateWorkflow(projectId, workflowId, (current) => {
+        assertProfileWorkflow(project, current);
         const ready = current.status === 'FAILED' ? transition(current, 'retry') : current;
         return beginExecution(ready, 'local_git_firebase_preview');
       });
@@ -246,8 +257,10 @@ async function routeApi(request, response, requestUrl) {
     try {
       const projectId = decodeURIComponent(workflowPublish[1]);
       const workflowId = decodeURIComponent(workflowPublish[2]);
-      if (!getPrivateProject(projectId)?.deployment) throw new Error('Site güncelleme bağlantısı kurulmamış.');
+      const project = getPrivateProject(projectId);
+      if (!project?.deployment) throw new Error('Site güncelleme bağlantısı kurulmamış.');
       const workflow = updateWorkflow(projectId, workflowId, (current) => {
+        assertProfileWorkflow(project, current);
         const ready = current.status === 'FAILED' ? transition(current, 'retry') : current;
         return beginPublish(ready);
       });
@@ -264,7 +277,7 @@ async function routeApi(request, response, requestUrl) {
       const project = getPrivateProject(importId);
       if (!project) throw new Error('Proje bulunamadı.');
       const loaded = loadExport(payload.directory.trim(),
-          {clusters: project.id === 'lingodecoder' ? undefined : []});
+          analysisOptions(project));
       const workflows = projectWorkflows(project.id, loaded.report, project.workflows || []);
       const importedProject = updateProject(importId, {csvDirectory: loaded.directory,
         lastSyncReport: null, lastSyncAt: new Date().toISOString(), workflows});
@@ -317,7 +330,7 @@ async function routeApi(request, response, requestUrl) {
       google.assertGeneration(syncId, generation);
       project = getPrivateProject(syncId);
       const report = analyzeExport(tables,
-          {clusters: project.id === 'lingodecoder' ? undefined : []});
+          analysisOptions(project));
       report.source = 'search_console_api';
       const workflows = projectWorkflows(project.id, report, project.workflows || []);
       const syncedProject = updateProject(project.id, {lastSyncReport: report,

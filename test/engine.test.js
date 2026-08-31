@@ -2,8 +2,11 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {ACTION, analyzeExport, clusterForQuery, confidenceFor} =
+const {ACTION, analyzeExport:analyzeGeneric, clusterForQuery:findCluster, confidenceFor} =
   require('../src/engine');
+const {CLUSTERS} = require('../src/legacy-preset');
+const analyzeExport = (tables, options = {clusters:CLUSTERS}) => analyzeGeneric(tables, options);
+const clusterForQuery = query => findCluster(query, CLUSTERS);
 
 const headers = ['Anahtar', 'Tıklamalar', 'Gösterimler', 'TO', 'Pozisyon'];
 

@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {loadExport} = require('../src/importer');
+const {CLUSTERS} = require('../src/legacy-preset');
 
 test('loads a Search Console directory into the shared report model', (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'seo-autopilot-'));
@@ -17,7 +18,7 @@ test('loads a Search Console directory into the shared report model', (context) 
   fs.writeFileSync(path.join(directory, 'Sayfa sayısı.csv'),
       'En çok görüntülenen sayfalar,Tıklamalar,Gösterimler,TO,Konum\nhttps://lingodecoder.de/tr/blog/almanca-artikeller-der-die-das,2,20,"10%",12\n');
 
-  const result = loadExport(directory);
+  const result = loadExport(directory, {clusters:CLUSTERS});
   assert.equal(result.report.summary.clicks, 2);
   assert.equal(result.report.summary.impressions, 20);
   assert.equal(result.report.opportunities[0].clusterId, 'artikel_tr');
