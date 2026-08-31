@@ -4,7 +4,7 @@ const state = {report: null, mode: 'demo', directory: '', filter: 'all',
   projects: [], project: null, googleStatus: null, workflows: [], deploymentStatus: null};
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const format = new Intl.NumberFormat('tr-TR');
+const format = {format:value=>new Intl.NumberFormat(AppI18n.locale()).format(value)};
 
 const actionMeta = {
   UPDATE_EXISTING: {label: 'Sayfayı güncelle', className: 'update', icon: '↗'},
@@ -15,7 +15,7 @@ const actionMeta = {
 const confidenceLabel = {very_low: 'Çok düşük', low: 'Düşük', medium: 'Orta', high: 'Yüksek', very_high: 'Çok yüksek'};
 const viewLabels = {overview: 'Genel bakış', opportunities: 'Fırsatlar',
   workflows: 'Onay kuyruğu', queries: 'Sorgular', pages: 'Sayfalar',
-  data: 'Veri kaynakları', profile:'Site profili'};
+  data: 'Veri kaynakları', profile:'Site profili',settings:'Ayarlar'};
 const workflowMeta = {
   PLANNED: {label: 'İçerik planında', className: 'planned'},
   DISCOVERED: {label: 'Otomatik izleniyor', className: 'discovered'},
@@ -32,14 +32,14 @@ const workflowMeta = {
   FAILED: {label: 'Güncelleme başarısız', className: 'failed'},
 };
 
-function number(value, digits = 0) { return Number(value || 0).toLocaleString('tr-TR', {maximumFractionDigits: digits}); }
-function percent(value) { return `%${number(Number(value || 0) * 100, 1)}`; }
+function number(value, digits = 0) { return Number(value || 0).toLocaleString(AppI18n.locale(), {maximumFractionDigits: digits}); }
+function percent(value) { return new Intl.NumberFormat(AppI18n.locale(),{style:'percent',maximumFractionDigits:1}).format(Number(value||0)); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, (char) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[char])); }
 function formatDateTime(value, short = false) {
   if (!value) return 'Henüz yok';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Bilinmiyor';
-  return date.toLocaleString('tr-TR', short ?
+  return date.toLocaleString(AppI18n.locale(), short ?
     {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'} :
     {day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'});
 }
@@ -94,7 +94,7 @@ function renderOverview() {
   $('#activeDays').textContent = `${report.summary.activeDays} aktif gün`;
   $('#opportunityCount').textContent = report.opportunities.length;
   $('#headingOpportunityCount').textContent = `${report.opportunities.length} SEO sinyali`;
-  $('#lastAnalysis').textContent = new Date(report.generatedAt).toLocaleString('tr-TR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+  $('#lastAnalysis').textContent = new Date(report.generatedAt).toLocaleString(AppI18n.locale(), {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
   renderChart();
   const focus = report.opportunities.find((item) => item.action === 'UPDATE_EXISTING') || report.opportunities[0];
   if (focus) {
@@ -260,7 +260,7 @@ function openWorkflowDetail(id) {
   $('[data-workflow-retry]', $('#workflowDetailContent'))?.addEventListener('click', (event) =>
     runDeploymentAction(workflow.id, event.currentTarget.dataset.retryAction));
   $('[data-workflow-publish]', $('#workflowDetailContent'))?.addEventListener('click', () => {
-    if (window.confirm('Hazırlanan değişiklikler doğrudan canlı siteye yayınlanacak. Ayrı Firebase önizlemesi yapılmaz. Yayın tamamlanınca güncel sayfayı açabilirsin. Canlıya yayınlansın mı?')) {
+    if (window.confirm(AppI18n.t('Hazırlanan değişiklikler doğrudan canlı siteye yayınlanacak. Ayrı Firebase önizlemesi yapılmaz. Yayın tamamlanınca güncel sayfayı açabilirsin. Canlıya yayınlansın mı?'))) {
       runDeploymentAction(workflow.id, 'publish');
     }
   });
@@ -282,10 +282,10 @@ function initials(name) {
   return words.slice(0, 2).map((word) => word[0]).join('').toLocaleUpperCase('tr');
 }
 function renderProjects() {
-  $('.content').hidden = !state.project;
+  $('.content').hidden = !state.project && !$('#view-settings').classList.contains('active');
   $('#emptyProjectPanel').hidden = Boolean(state.project);
   $('#importButton').disabled = !state.project;
-  $$('.nav-item').forEach((button) => { button.disabled = !state.project; });
+  $$('.nav-item').forEach((button) => { button.disabled = !state.project && button.dataset.view !== 'settings'; });
   $('#currentProjectName').textContent = state.project?.name || 'Proje ekle';
   $('#breadcrumbProject').textContent = state.project?.name || 'Proje yok';
   $('#projectInitials').textContent = initials(state.project?.name || 'SEO');
@@ -296,6 +296,8 @@ function renderProjects() {
 }
 
 function setView(name) {
+  $('.content').hidden = !state.project && name !== 'settings';
+  $('#emptyProjectPanel').hidden = Boolean(state.project) || name === 'settings';
   $$('.view').forEach((view) => view.classList.toggle('active', view.id === `view-${name}`));
   $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === name));
   $('#viewCrumb').textContent = viewLabels[name];
@@ -531,6 +533,7 @@ function updateCurrentProject(project) {
   renderProjects();
 }
 async function autoSyncOnOpen() {
+  if (!AppI18n.settings.autoSync) return;
   if (state.project?.connection !== 'connected') return;
   const key = `seo-auto-synced-${state.project.id}`;
   if (sessionStorage.getItem(key)) return;

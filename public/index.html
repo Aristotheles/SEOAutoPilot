@@ -47,6 +47,7 @@
           <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
           Veri kaynakları
         </button>
+        <button class="nav-item" data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Ayarlar</button>
       </nav>
 
       <div class="sidebar-card">
@@ -69,6 +70,7 @@
         </button>
         <div class="breadcrumb"><span id="breadcrumbProject">LingoDecoder</span><b>/</b><strong id="viewCrumb">Genel bakış</strong></div>
         <div class="topbar-actions">
+          <select id="quickLanguage" aria-label="Arayüz dili" class="language-select"><option value="tr">Türkçe</option><option value="en">English</option><option value="de">Deutsch</option></select>
           <span class="status-pill" id="dataStatus"><i></i> Demo veri</span>
           <button class="icon-button" aria-label="Bildirimler">
             <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
@@ -83,6 +85,13 @@
 
       <section class="panel empty-project-panel" id="emptyProjectPanel" hidden><h1>Henüz proje yok</h1><p>Yeni bir proje ekleyebilirsin. Kaldırdığın sitelerin kendisi ve kaynak dosyaları silinmez.</p><button class="primary-button" data-open-projects>Proje ekle</button><button class="danger-button" data-remove-connection="google-config">Ortak Google OAuth bilgilerini sil</button></section>
       <div class="content">
+        <section class="view" id="view-settings">
+          <div class="page-heading"><div><p class="eyebrow">SEOAutoPilot</p><h1>Ayarlar</h1><p>Tercihler otomatik kaydedilir. Site dilleri ve SEO taslakları değişmez.</p></div></div>
+          <div class="settings-grid">
+            <section class="panel profile-section"><h2>Program tercihleri</h2><label class="setting-row">Arayüz dili<select id="settingLanguage" class="language-select"><option value="tr">Türkçe</option><option value="en">English</option><option value="de">Deutsch</option></select></label><h3>Görünüm ve erişilebilirlik</h3><label class="setting-row"><span>Büyük yazı</span><input type="checkbox" id="settingLargeText"></label><label class="setting-row"><span>Animasyonları azalt</span><input type="checkbox" id="settingReducedMotion"></label><h3>Senkronizasyon</h3><label class="setting-row"><span>Açılışta otomatik senkronize et</span><input type="checkbox" id="settingAutoSync"></label><p>Bu tercih yalnız bu tarayıcı için geçerlidir. Elle yenileme her zaman kullanılabilir.</p><p id="settingsFeedback" role="status" aria-live="polite"></p></section>
+            <section class="panel profile-section"><h2>Güvenlik ve çalışma şekli</h2><p>Yayın için her zaman kullanıcı onayı gerekir.</p><p>Firebase önizleme yayını yapılmaz; hazırlık ve kontroller yerelde çalışır.</p><p>Veriler ve anahtarlar bu bilgisayarda saklanır; GitHub’a gönderilmez.</p><h3>Program hakkında</h3><div class="setting-row"><span>Sürüm</span><strong id="settingsVersion">—</strong></div><div class="setting-row"><span>Çalışma ortamı</span><strong>Yerel sunucu</strong></div><button id="resetUiSettings" class="outline-button">Yalnız arayüz tercihlerini sıfırla</button><p>Projeler, bağlantılar ve raporlar silinmez.</p></section>
+          </div>
+        </section>
         <section class="view" id="view-profile">
           <div class="page-heading"><div><p class="eyebrow">PROJEYE ÖZEL KURALLAR</p><h1>Site profili</h1><p id="profileProjectLabel"></p></div></div>
           <div class="panel profile-notice"><strong id="profileStatus">Kontrol bekliyor</strong><p>Form doldurman gerekmiyor. Siteyi inceleyelim, bulduklarımızı birlikte kontrol edelim. Sitenin içeriği ve açılış davranışı değişmez.</p><button type="button" class="primary-button" id="inspectSite">Siteyi otomatik incele</button><p id="inspectionProgress" role="status" aria-live="polite"></p><div id="inspectionSummary"></div></div>
@@ -298,7 +307,9 @@
   <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
   <aside class="detail-drawer" id="detailDrawer" aria-hidden="true"><button class="drawer-close" id="drawerClose">×</button><div id="drawerContent"></div></aside>
   <div class="toast" id="toast"><span>✓</span><p></p></div>
+  <script src="/i18n.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/profile.js" defer></script>
+  <script src="/settings.js" defer></script>
 </body>
 </html>

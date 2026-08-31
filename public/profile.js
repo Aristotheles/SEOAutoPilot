@@ -69,7 +69,7 @@ $('#siteProfileForm').addEventListener('submit', async event => {
 });
 
 let inspectionTimer;
-const languageName=code=>{try{return new Intl.DisplayNames(['tr'],{type:'language'}).of(code);}catch{return code;}};
+const languageName=code=>{try{return new Intl.DisplayNames([AppI18n.settings.language],{type:'language'}).of(code);}catch{return code;}};
 async function loadInspection(id) {
   clearTimeout(inspectionTimer);
   try{

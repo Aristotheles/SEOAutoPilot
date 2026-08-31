@@ -157,7 +157,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.8.1'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.9.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;

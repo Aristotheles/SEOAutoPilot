@@ -4,6 +4,14 @@ Birden fazla site için proje bazlı, insan onaylı Search Console fırsat motor
 
 ## Arayüz
 
+Sol menüde **Ayarlar**: Türkçe/English/Deutsch arayüz dili, büyük yazı,
+azaltılmış animasyon ve açılışta otomatik senkronizasyon tercihleri.
+Dil üst çubuktan da değiştirilebilir. Tercihler yalnız bu tarayıcıdaki
+`seo-ui-settings` kaydında saklanır; proje içerik dillerini etkilemez.
+Sıfırlama yalnız bu tercihleri değiştirir, proje/anahtar/rapor silmez.
+Menüler, ortak kontrol etiketleri ve Ayarlar ekranı çevrilir. Kaynak raporlar,
+SEO metinleri, işlem geçmişi ve ham sunucu hata mesajları özgün dilinde korunur.
+
 Uygulamayı başlat:
 
 ```powershell
