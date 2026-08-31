@@ -163,6 +163,20 @@ function addEvent(workflow, type, label, now, actor = 'user') {
 function transition(workflow, action, options = {}) {
   if (workflow.blockedReason && ['approve','retry'].includes(action)) throw new Error(workflow.blockedReason);
   const now = options.now || new Date().toISOString();
+  if (action === 'select_variant' && workflow.status === STATUS.awaitingApproval && workflow.action === 'CTR_TEST') {
+    if (!['a', 'b'].includes(options.variant)) throw new Error('Başlık varyantı A veya B olmalı.');
+    const selected = workflow.brief?.changes?.find((change) => change.id === `title-${options.variant}`);
+    const meta = workflow.brief?.changes?.find((change) => change.id === 'meta');
+    if (!selected?.proposed || !meta?.proposed) throw new Error('Seçilen başlık taslağı eksik.');
+    const brief = {...workflow.brief,
+      action:`Seçilen ${options.variant.toUpperCase()} başlığını ve meta açıklamasını mevcut sayfaya uygula.`,
+      changes:[{...selected,id:'title',area:'SEO başlığı'},meta]};
+    const briefHash=crypto.createHash('sha256').update(JSON.stringify({brief,
+      profileRevision:workflow.profileRevision||0})).digest('hex');
+    return {...workflow,action:'UPDATE_EXISTING',brief,briefHash,status:STATUS.approved,
+      approvedAt:now,updatedAt:now,events:addEvent(workflow,'VARIANT_SELECTED',
+        `Başlık varyantı ${options.variant.toUpperCase()} seçildi ve toplu yayın için onaylandı`,now)};
+  }
   if (action === 'approve' && workflow.status === STATUS.awaitingApproval) {
     return {...workflow, status: STATUS.approved, approvedAt: now, updatedAt: now,
       events: addEvent(workflow, 'APPROVED', 'Önerilen değişiklikler kullanıcı tarafından onaylandı', now)};

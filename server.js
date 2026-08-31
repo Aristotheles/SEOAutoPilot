@@ -265,7 +265,7 @@ async function routeApi(request, response, requestUrl) {
       const index = workflows.findIndex((item) => item.id === workflowId);
       if (index < 0) throw new Error('Görev bulunamadı.');
       if (['approve','retry'].includes(payload.action)) assertProfileWorkflow(project, workflows[index]);
-      workflows[index] = transition(workflows[index], payload.action);
+      workflows[index] = transition(workflows[index], payload.action, {variant: payload.variant});
       updateProject(project.id, {workflows});
       json(response, 200, {workflow: workflows[index]});
     } catch (error) { json(response, 400, {error: error.message}); }

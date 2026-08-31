@@ -228,6 +228,7 @@ function workflowActionPanel(workflow, targetUrl) {
     return `<div class="connection-warning"><div><strong>Değişiklikler hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Yayın bağlantısını doğrula</button></div>`;
   }
   if (workflow.status === 'PLANNED') return `<div class="approval-box"><strong>Öneri unutulmayacak şekilde editoryal kuyruğa kaydedildi.</strong><br>Search Console sinyali, mevcut içerikle çakışma ve hedef sorgular doğrulanmadan yayın taslağına dönüştürülmeyecek.</div>`;
+  if (workflow.status === 'AWAITING_APPROVAL' && workflow.action === 'CTR_TEST') return `<div class="approval-box detail-approval"><strong>İki başlıktan birini seç.</strong><br>Seçtiğin başlık ve yukarıdaki meta açıklaması toplu yayın kuyruğuna alınacak; diğer başlık uygulanmayacak.</div><div class="detail-actions"><button class="reject-button detail-reject" data-workflow-action="reject" data-workflow-id="${escapeHtml(workflow.id)}">Öneriyi reddet</button><button class="outline-button" data-workflow-action="select_variant" data-workflow-variant="a" data-workflow-id="${escapeHtml(workflow.id)}">Varyant A’yı seç</button><button class="modal-submit detail-approve" data-workflow-action="select_variant" data-workflow-variant="b" data-workflow-id="${escapeHtml(workflow.id)}">Varyant B’yi seç <span>→</span></button></div>`;
   if (workflow.status === 'AWAITING_APPROVAL') return `<div class="approval-box detail-approval"><strong>Onaylamadan önce yukarıdaki değişikliklerin tamamını kontrol et.</strong><br>Onay yalnızca bu listelenen taslağı uygulama aşamasına geçirir; siteyi henüz değiştirmez.</div><div class="detail-actions"><button class="reject-button detail-reject" data-workflow-action="reject" data-workflow-id="${escapeHtml(workflow.id)}">Öneriyi reddet</button><button class="modal-submit detail-approve" data-workflow-action="approve" data-workflow-id="${escapeHtml(workflow.id)}">Bu değişiklikleri onayla <span>→</span></button></div>`;
   if (workflow.status === 'APPROVED' && !state.deploymentStatus?.connected) return `<div class="connection-warning"><strong>Site güncelleme bağlantısı henüz kurulmadı</strong><p>Öneri onaylandı fakat kaynak koduna bağlı bir yayınlama kanalı yok. Bu nedenle SEOAutoPilot sayfayı değiştirmiş gibi davranmayacak.</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Site bağlantısını kur →</button></div>`;
   if (workflow.status === 'APPROVED' && !state.deploymentStatus?.capabilities?.preview) return `<div class="connection-warning"><strong>Firebase erişimi doğrulanmadı; hazırlık başlatılmadı</strong><p>${escapeHtml(state.deploymentStatus?.publicationWarning || 'Firebase hesabını kontrol et.')}</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Bağlantıyı kontrol et →</button></div>`;
@@ -254,7 +255,7 @@ function openWorkflowDetail(id) {
   $('#workflowDetailModal').hidden = false;
   $$('[data-workflow-action]', $('#workflowDetailContent')).forEach((button) =>
     button.addEventListener('click', () => runWorkflowAction(button.dataset.workflowId,
-        button.dataset.workflowAction)));
+        button.dataset.workflowAction, button.dataset.workflowVariant)));
   $('[data-workflow-preview]', $('#workflowDetailContent'))?.addEventListener('click', () =>
     runDeploymentAction(workflow.id, 'preview'));
   $('[data-open-bulk-publish]', $('#workflowDetailContent'))?.addEventListener('click',()=>{closeWorkflowDetail();setView('workflows');$('#reviewBulkPublish').click();});
@@ -352,16 +353,16 @@ async function loadDeploymentStatus() {
   state.deploymentStatus = response.ok ? payload : {connected: false, state: 'error',
     error: payload.error};
 }
-async function runWorkflowAction(id, action) {
+async function runWorkflowAction(id, action, variant) {
   try {
     const response = await fetch(`/api/projects/${encodeURIComponent(state.project.id)}/workflows/${encodeURIComponent(id)}/action`,
         {method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({action})});
+          body: JSON.stringify({action, variant})});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
     const index = state.workflows.findIndex((item) => item.id === id);
     if (index >= 0) state.workflows[index] = payload.workflow;
     renderWorkflows(); openWorkflowDetail(id);
-    showToast(action === 'approve' ? 'Değişiklik taslağı onaylandı; site henüz güncellenmedi.' :
+    showToast(action === 'select_variant' ? `Varyant ${String(variant).toUpperCase()} seçildi; öneri toplu yayına hazır.` : action === 'approve' ? 'Değişiklik taslağı onaylandı; site henüz güncellenmedi.' :
       action === 'reject' ? 'Görev reddedildi.' : 'Görev durumu güncellendi.');
   } catch (exception) { showToast(exception.message, 'error'); }
 }

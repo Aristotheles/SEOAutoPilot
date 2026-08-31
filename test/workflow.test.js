@@ -30,6 +30,16 @@ test('generates approval-gated workflows and preserves their state', () => {
   assert.equal(refreshed[0].id, first[0].id);
 });
 
+test('selecting a CTR title variant creates one exact approved title change', () => {
+  const workflow = syncWorkflows('project-1', {opportunities:[{...opportunity, action:'CTR_TEST'}]})[0];
+  const selected = transition(workflow, 'select_variant', {variant:'b'});
+  assert.equal(selected.status, STATUS.approved);
+  assert.equal(selected.action, 'UPDATE_EXISTING');
+  assert.deepEqual(selected.brief.changes.map((change) => change.id), ['title', 'meta']);
+  assert.match(selected.brief.changes[0].proposed, /Details and Answers/);
+  assert.throws(() => transition(workflow, 'select_variant', {variant:'c'}), /A veya B/);
+});
+
 test('does not allow skipping required workflow stages', () => {
   const workflow = syncWorkflows('project-1', {opportunities: [opportunity]})[0];
   assert.throws(() => transition(workflow, 'complete'));
