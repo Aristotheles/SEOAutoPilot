@@ -23,7 +23,7 @@ const workflowMeta = {
   APPROVED: {label: 'Uygulamaya hazır', className: 'approved'},
   APPLYING: {label: 'Sayfa güncelleniyor', className: 'applying'},
   APPLIED: {label: 'Sayfa güncellendi', className: 'applied'},
-  PREVIEW_READY: {label: 'Önizleme hazır', className: 'applied'},
+  PREVIEW_READY: {label: 'Yayına hazır', className: 'applied'},
   PUBLISHING: {label: 'Canlıya yayınlanıyor', className: 'applying'},
   PUBLISHED: {label: 'Canlıya yayınlandı', className: 'applied'},
   MONITORING: {label: 'Etki izleniyor', className: 'monitoring'},
@@ -185,9 +185,9 @@ function nextStepFor(workflow) {
   if (workflow.blockedReason) return workflow.blockedReason;
   if (workflow.status === 'PLANNED') return 'Arama niyetini doğrula ve ayrıntılı taslak hazırla';
   if (workflow.status === 'AWAITING_APPROVAL') return 'Önerilen değişikliklerin tümünü incele';
-  if (workflow.status === 'APPROVED') return 'Site güncelleme bağlantısını kur';
+  if (workflow.status === 'APPROVED') return 'Değişiklikleri hazırla ve kontrol et';
   if (workflow.status === 'APPLYING') return 'Sayfa güncellemesinin tamamlanmasını bekle';
-  if (workflow.status === 'PREVIEW_READY') return 'Önizlemeyi kontrol et ve canlı yayın kararı ver';
+  if (workflow.status === 'PREVIEW_READY') return 'Canlıya yayınla; ardından güncel sayfayı gör';
   if (workflow.status === 'PUBLISHING') return 'Canlı yayının tamamlanmasını bekle';
   if (['PUBLISHED', 'APPLIED'].includes(workflow.status)) return 'Yeni sayfayı doğrula ve izlemeyi başlat';
   if (workflow.status === 'MONITORING') return '14/28 günlük performans değişimini izle';
@@ -225,20 +225,20 @@ function workflowPreviewUrl(workflow) {
 function workflowActionPanel(workflow, targetUrl) {
   if (workflow.blockedReason) return `<div class="connection-warning"><strong>Profil veya içerik dili kontrolü gerekli</strong><p>${escapeHtml(workflow.blockedReason)}</p></div><button class="outline-button" data-open-profile>Site profilini aç →</button>`;
   if (workflow.status === 'PREVIEW_READY' && state.deploymentStatus?.capabilities?.production === false) {
-    return `<div class="connection-warning"><div><strong>Önizleme hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflowPreviewUrl(workflow))}" target="_blank" rel="noopener">Hedef sayfa önizlemesini gör ↗</a><button class="modal-submit" disabled>Yayın bağlantısını doğrula</button></div>`;
+    return `<div class="connection-warning"><div><strong>Değişiklikler hazır; canlı yayın bağlantısı eksik</strong><p>${escapeHtml(state.deploymentStatus.publicationWarning || 'Yayın bağlantısını kontrol et.')}</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Yayın bağlantısını doğrula</button></div>`;
   }
   if (workflow.status === 'PLANNED') return `<div class="approval-box"><strong>Öneri unutulmayacak şekilde editoryal kuyruğa kaydedildi.</strong><br>Search Console sinyali, mevcut içerikle çakışma ve hedef sorgular doğrulanmadan yayın taslağına dönüştürülmeyecek.</div>`;
   if (workflow.status === 'AWAITING_APPROVAL') return `<div class="approval-box detail-approval"><strong>Onaylamadan önce yukarıdaki değişikliklerin tamamını kontrol et.</strong><br>Onay yalnızca bu listelenen taslağı uygulama aşamasına geçirir; siteyi henüz değiştirmez.</div><div class="detail-actions"><button class="reject-button detail-reject" data-workflow-action="reject" data-workflow-id="${escapeHtml(workflow.id)}">Öneriyi reddet</button><button class="modal-submit detail-approve" data-workflow-action="approve" data-workflow-id="${escapeHtml(workflow.id)}">Bu değişiklikleri onayla <span>→</span></button></div>`;
   if (workflow.status === 'APPROVED' && !state.deploymentStatus?.connected) return `<div class="connection-warning"><strong>Site güncelleme bağlantısı henüz kurulmadı</strong><p>Öneri onaylandı fakat kaynak koduna bağlı bir yayınlama kanalı yok. Bu nedenle SEOAutoPilot sayfayı değiştirmiş gibi davranmayacak.</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Site bağlantısını kur →</button></div>`;
-  if (workflow.status === 'APPROVED' && !state.deploymentStatus?.capabilities?.preview) return `<div class="connection-warning"><strong>Firebase erişimi doğrulanmadı; önizleme başlatılmadı</strong><p>${escapeHtml(state.deploymentStatus?.publicationWarning || 'Firebase hesabını kontrol et.')}</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Bağlantıyı kontrol et →</button></div>`;
-  if (workflow.status === 'APPROVED') return `<div class="apply-progress monitoring"><i>↗</i><div><strong>Önizleme hazırlanmaya hazır</strong><p>Değişiklikler ${escapeHtml(state.deploymentStatus.connection.branch)} dalından oluşturulacak ayrı bir Git çalışma alanına uygulanacak. Canlı site bu aşamada değişmez.</p></div></div><div class="detail-actions"><button class="modal-submit" data-workflow-preview="${escapeHtml(workflow.id)}">Firebase önizlemesi hazırla <span>→</span></button></div>`;
+  if (workflow.status === 'APPROVED' && !state.deploymentStatus?.capabilities?.preview) return `<div class="connection-warning"><strong>Firebase erişimi doğrulanmadı; hazırlık başlatılmadı</strong><p>${escapeHtml(state.deploymentStatus?.publicationWarning || 'Firebase hesabını kontrol et.')}</p></div><div class="detail-actions"><button class="outline-button" data-open-data-source>Bağlantıyı kontrol et →</button></div>`;
+  if (workflow.status === 'APPROVED') return `<div class="apply-progress monitoring"><i>↗</i><div><strong>Değişiklikler hazırlanmaya hazır</strong><p>Onaylanan değişiklikler ayrı çalışma alanında uygulanıp derlenecek. Firebase önizlemesi oluşturulmaz; canlı site bu aşamada değişmez.</p></div></div><div class="detail-actions"><button class="modal-submit" data-workflow-preview="${escapeHtml(workflow.id)}">Değişiklikleri hazırla <span>→</span></button></div>`;
   if (workflow.status === 'APPLYING') return `<div class="apply-progress"><i></i><div><strong>Sayfa güncelleniyor…</strong><p>Onaylanan değişiklikler bağlı yayınlama kanalı üzerinden uygulanıyor. Bu pencereyi yeniden açarsan işlem bitene kadar aynı durum gösterilir.</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Güncelleme henüz bitmedi</button></div>`;
-  if (workflow.status === 'PREVIEW_READY') return `<div class="apply-progress done"><i>✓</i><div><strong>Firebase önizlemesi hazır</strong><p>${escapeHtml(formatDateTime(workflow.execution?.previewAt))} · ${workflow.execution?.appliedChangeIds?.length || 0} kesin değişiklik uygulandı · ${workflow.execution?.pendingChangeIds?.length || 0} editoryal madde sırada kaldı.</p></div></div><div class="connection-warning"><strong>Canlı site henüz değişmedi</strong><p>Önizlemeyi açıp hedef sayfayı kontrol et. “Canlıya yayınla” ikinci ve son kullanıcı onayıdır; Git dalı güncellenir ve Firebase Hosting deploy başlar.</p></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflowPreviewUrl(workflow))}" target="_blank" rel="noopener">Hedef sayfa önizlemesini gör ↗</a><button class="modal-submit" data-workflow-publish="${escapeHtml(workflow.id)}">Canlıya yayınla <span>→</span></button></div>`;
+  if (workflow.status === 'PREVIEW_READY') return `<div class="apply-progress done"><i>✓</i><div><strong>Değişiklikler yayına hazır</strong><p>${escapeHtml(formatDateTime(workflow.execution?.previewAt))} · ${workflow.execution?.appliedChangeIds?.length || 0} değişiklik hazırlandı · ${workflow.execution?.pendingChangeIds?.length || 0} editoryal madde sırada kaldı.</p></div></div><div class="connection-warning"><strong>Canlı site henüz değişmedi</strong><p>“Canlıya yayınla” dediğinde değişiklikler doğrudan Firebase Hosting'e yayınlanır. Tamamlanınca “Yeni sayfayı gör” ile sonucu kontrol edebilirsin.</p></div><div class="detail-actions"><button class="modal-submit" data-workflow-publish="${escapeHtml(workflow.id)}">Canlıya yayınla <span>→</span></button></div>`;
   if (workflow.status === 'PUBLISHING') return `<div class="apply-progress"><i></i><div><strong>Canlıya yayınlanıyor…</strong><p>Onaylanan Git değişikliği kaydediliyor, uzak depoya gönderiliyor ve Firebase Hosting dağıtımı yapılıyor.</p></div></div><div class="detail-actions"><button class="modal-submit" disabled>Yayın henüz bitmedi</button></div>`;
   if (['PUBLISHED', 'APPLIED'].includes(workflow.status)) return `<div class="apply-progress done"><i>✓</i><div><strong>Sayfa canlıya yayınlandı</strong><p>${escapeHtml(formatDateTime(workflow.execution?.appliedAt))} tarihinde yayın adresi doğrulandı.</p></div></div><div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution?.url || targetUrl)}" target="_blank" rel="noopener">Yeni sayfayı gör ↗</a><button class="modal-submit" data-workflow-action="start_monitoring" data-workflow-id="${escapeHtml(workflow.id)}">İzlemeyi başlat <span>→</span></button></div>`;
   if (workflow.status === 'MONITORING') return `<div class="apply-progress monitoring"><i>◷</i><div><strong>14/28 günlük ölçüm sürüyor</strong><p>Başlangıç: ${escapeHtml(formatDateTime(workflow.monitoringStartedAt))}. Sistem süre dolmadan sonucu tamamlandı olarak işaretlemez.</p></div></div>${workflow.execution?.url ? `<div class="detail-actions"><a class="outline-button view-page-link" href="${escapeHtml(workflow.execution.url)}" target="_blank" rel="noopener">Yayınlanan sayfayı gör ↗</a></div>` : ''}`;
   if (workflow.status === 'COMPLETED') return `<div class="apply-progress done"><i>✓</i><div><strong>Ölçüm tamamlandı</strong><p>${workflow.result ? escapeHtml(JSON.stringify(workflow.result)) : 'Sonuç kaydı oluşturuldu; ayrıntılı karşılaştırma bilgi tabanında saklanacak.'}</p></div></div>`;
-  if (workflow.status === 'FAILED') { const retryAction = workflow.execution?.failedPhase === 'PUBLISHING' ? 'publish' : 'preview'; return `<div class="connection-warning error"><strong>Güncelleme tamamlanamadı</strong><p>${escapeHtml(workflow.execution?.error || 'Yayınlama kanalı bilinmeyen bir hata döndürdü.')}</p></div><div class="detail-actions"><button class="outline-button" data-workflow-retry="${escapeHtml(workflow.id)}" data-retry-action="${retryAction}">${retryAction === 'publish' ? 'Canlı yayını' : 'Önizlemeyi'} yeniden dene →</button></div>`; }
+  if (workflow.status === 'FAILED') { const retryAction = workflow.execution?.failedPhase === 'PUBLISHING' ? 'publish' : 'preview'; return `<div class="connection-warning error"><strong>Güncelleme tamamlanamadı</strong><p>${escapeHtml(workflow.execution?.error || 'Yayınlama kanalı bilinmeyen bir hata döndürdü.')}</p></div><div class="detail-actions"><button class="outline-button" data-workflow-retry="${escapeHtml(workflow.id)}" data-retry-action="${retryAction}">${retryAction === 'publish' ? 'Canlı yayını' : 'Hazırlığı'} yeniden dene →</button></div>`; }
   if (workflow.status === 'REJECTED') return '<div class="approval-box"><strong>Öneri reddedildi</strong><br>Site üzerinde değişiklik yapılmadı. Yeni Search Console verisi geldiğinde fırsat yeniden değerlendirilebilir.</div>';
   return '<div class="approval-box"><strong>Otomatik veri izleme</strong><br>Yeterli sinyal oluşana kadar site üzerinde değişiklik yapılmayacak.</div>';
 }
@@ -260,7 +260,7 @@ function openWorkflowDetail(id) {
   $('[data-workflow-retry]', $('#workflowDetailContent'))?.addEventListener('click', (event) =>
     runDeploymentAction(workflow.id, event.currentTarget.dataset.retryAction));
   $('[data-workflow-publish]', $('#workflowDetailContent'))?.addEventListener('click', () => {
-    if (window.confirm('Önizlemeyi kontrol ettin mi? Bu işlem değişikliği Git dalına kaydedip canlı Firebase Hosting sitesine yayınlayacak.')) {
+    if (window.confirm('Hazırlanan değişiklikler doğrudan canlı siteye yayınlanacak. Ayrı Firebase önizlemesi yapılmaz. Yayın tamamlanınca güncel sayfayı açabilirsin. Canlıya yayınlansın mı?')) {
       runDeploymentAction(workflow.id, 'publish');
     }
   });
@@ -370,7 +370,7 @@ async function runDeploymentAction(id, action) {
     const index = state.workflows.findIndex((item) => item.id === id);
     if (index >= 0) state.workflows[index] = payload.workflow;
     renderWorkflows(); openWorkflowDetail(id);
-    showToast(action === 'preview' ? 'Önizleme hazırlığı başladı. Durum otomatik güncellenecek.' :
+    showToast(action === 'preview' ? 'Değişiklikler hazırlanıyor ve kontrol ediliyor. Canlı site henüz değişmez.' :
       'Canlı yayın başladı. Tamamlandığında burada görünecek.');
     pollWorkflow(id);
   } catch (exception) { showToast(exception.message, 'error'); }

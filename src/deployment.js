@@ -320,31 +320,9 @@ async function preparePreview(workflow, connection) {
     }
     await buildProject(worktreePath, account);
     verifyBuiltPage(worktreePath, patch.sourceFile);
-    const channel = `seo-${workflow.id.slice(0, 12)}`;
-    const previewCommand = firebaseInvocation(['hosting:channel:deploy', channel,
-      '--expires', '7d', '--project', connection.firebaseProject, '--json',
-      '--non-interactive', '--account', account]);
-    const output = await runAsync(previewCommand.command, previewCommand.args, worktreePath,
-        10 * 60_000);
-    let parsed;
-    try { parsed = JSON.parse(output); } catch (_) { parsed = output; }
-    let url = findPreviewUrl(parsed);
-    if (!url) {
-      const listCommand = firebaseInvocation(['hosting:channel:list', '--project',
-        connection.firebaseProject, '--json', '--non-interactive', '--account', account]);
-      const listOutput = await runAsync(listCommand.command, listCommand.args, worktreePath,
-          2 * 60_000);
-      let listValue;
-      try { listValue = JSON.parse(listOutput); } catch (_) { listValue = listOutput; }
-      const channels = listValue?.result?.channels || [];
-      const exactChannel = channels.find((item) => String(item.name || '').endsWith(
-          `/channels/${channel}`));
-      url = exactChannel?.url || findPreviewUrl(listValue);
-    }
-    if (!url) throw new Error('Firebase önizleme adresi doğrulanamadı.');
     const revision = await runAsync('git', ['rev-parse', 'HEAD'], worktreePath, 30_000);
-    return {url, previewPageUrl: new URL(workflow.targetPath, url).href,
-      revision, branch, worktreePath, channel, firebaseAccount: account,
+    return {prepared: true, url: null, previewPageUrl: null,
+      revision, branch, worktreePath, firebaseAccount: account,
       firebaseProject: connection.firebaseProject, firebaseSite: checked.connection.firebaseSite, sourceFile: patch.sourceFile,
       appliedChangeIds: patch.applied, pendingChangeIds: patch.pending};
   } catch (error) {
@@ -374,6 +352,13 @@ async function publishPreview(workflow, connection, siteUrl) {
   if (readFirebaseProject(execution.worktreePath) !== connection.firebaseProject ||
       projectLayout(execution.worktreePath).firebaseSite !== authorized.connection.firebaseSite) {
     throw new Error('Önizleme çalışma alanının Firebase hedefi değişmiş; yeni önizleme gerekli.');
+  }
+  if (execution.prepared) {
+    const revision = run('git', ['rev-parse', 'HEAD'], execution.worktreePath).trim();
+    if (revision !== String(execution.revision).trim() || run('git', ['status', '--porcelain', '--untracked-files=no'], execution.worktreePath)) {
+      throw new Error('Hazırlanan kaynak değişmiş; değişiklikleri yeniden hazırla.');
+    }
+    verifyBuiltPage(execution.worktreePath, execution.sourceFile);
   }
   const currentBranch = run('git', ['branch', '--show-current'], connection.repositoryPath);
   if (currentBranch !== connection.branch) {

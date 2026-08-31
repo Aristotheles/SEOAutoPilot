@@ -157,7 +157,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.8.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.8.1'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -269,7 +269,7 @@ async function routeApi(request, response, requestUrl) {
       const workflow = updateWorkflow(projectId, workflowId, (current) => {
         assertProfileWorkflow(project, current);
         const ready = current.status === 'FAILED' ? transition(current, 'retry') : current;
-        return beginExecution(ready, 'local_git_firebase_preview');
+        return beginExecution(ready, 'local_git_build');
       });
       runPreviewJob(projectId, workflowId);
       json(response, 202, {workflow});

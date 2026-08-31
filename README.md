@@ -57,6 +57,12 @@ gösterilir.
 
 ## Kontrollü otomasyon
 
+Firebase önizleme kanalına ayrı yayın yapılmaz. Akış: değişiklikleri onayla →
+ayrı çalışma alanında hazırla ve derlemeyi doğrula → açık canlı yayın onayı →
+Firebase Hosting'e yayınla → Yeni sayfayı gör. Yayın hatası sonrası hazırlanmış
+çalışma alanı korunur; tekrar Firebase önizlemesi gerekmez. Eski önizleme
+kayıtlarıyla yayın uyumluluğu korunur. Derleme ve hedef proje kontrolleri sürer.
+
 Her analizden sonra fırsatlar otomatik olarak kalıcı iş akışlarına çevrilir:
 
 1. Sinyal ve arama niyeti doğrulanır.

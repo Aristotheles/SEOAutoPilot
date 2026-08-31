@@ -98,3 +98,18 @@ test('recovers a successfully deployed preview after URL parsing failed', () => 
   assert.equal(recovered.execution.previewPageUrl,
       'https://example--preview.web.app/growth-guide');
 });
+
+test('prepared local build can publish without Firebase preview and retry without rebuilding',()=>{
+  const workflow=syncWorkflows('project-1',{opportunities:[opportunity]})[0];
+  const applying=beginExecution(transition(workflow,'approve'),'local_git_build');
+  const prepared=finishExecution(applying,{prepared:true,url:null,worktreePath:'test-worktree',revision:'abc',sourceFile:'public/page.html'});
+  assert.equal(prepared.execution.previewUrl,null);
+  assert.match(prepared.events.at(-1).label,/derleme kontrolü/);
+  const publishing=beginPublish(prepared);
+  const retry=transition(failExecution(publishing,'Network error'),'retry');
+  assert.equal(retry.status,STATUS.previewReady);
+  assert.equal(retry.execution.worktreePath,'test-worktree');
+  assert.equal(beginPublish(retry).status,STATUS.publishing);
+  assert.throws(()=>beginPublish({...prepared,execution:{prepared:true}}));
+  assert.throws(()=>beginPublish(transition(workflow,'approve')));
+});

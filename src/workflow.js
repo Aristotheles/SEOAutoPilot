@@ -173,12 +173,12 @@ function transition(workflow, action, options = {}) {
   }
   if (action === 'retry' && workflow.status === STATUS.failed) {
     const publishRetry = workflow.execution?.failedPhase === STATUS.publishing &&
-      workflow.execution?.previewUrl;
+      (workflow.execution?.previewUrl || workflow.execution?.prepared);
     return {...workflow, status: publishRetry ? STATUS.previewReady : STATUS.approved,
       updatedAt: now, execution: publishRetry ? {...workflow.execution, state: 'preview_ready',
         error: null} : null,
       events: addEvent(workflow, 'RETRY_READY', publishRetry ?
-        'Canlı yayın yeniden denenmeye hazır' : 'Önizleme yeniden hazırlanmaya hazır', now)};
+        'Canlı yayın yeniden denenmeye hazır' : 'Değişiklikler yeniden hazırlanmaya hazır', now)};
   }
   if (action === 'start_monitoring' && workflow.status === STATUS.published &&
       workflow.execution?.appliedAt) {
@@ -218,7 +218,7 @@ function finishExecution(workflow, output, now = new Date().toISOString()) {
   return {...workflow, status: STATUS.previewReady, updatedAt: now,
     execution: {...workflow.execution, ...output, state: 'preview_ready', previewAt: now,
       previewUrl: output.url, url: null, appliedAt: null, revision: output.revision || null},
-    events: addEvent(workflow, 'PREVIEW_READY', 'Firebase önizlemesi hazırlandı', now,
+    events: addEvent(workflow, 'PREVIEW_READY', output.prepared ? 'Değişiklikler hazırlandı ve derleme kontrolü geçti; canlı site değişmedi' : 'Firebase önizlemesi hazırlandı', now,
         'system')};
 }
 
@@ -235,8 +235,9 @@ function recoverPreview(workflow, output, now = new Date().toISOString()) {
 }
 
 function beginPublish(workflow, now = new Date().toISOString()) {
-  if (workflow.status !== STATUS.previewReady || !workflow.execution?.previewUrl) {
-    throw new Error('Canlı yayın öncesinde doğrulanmış bir önizleme gerekli.');
+  const ready = workflow.execution?.previewUrl || (workflow.execution?.prepared && workflow.execution?.worktreePath && workflow.execution?.revision && workflow.execution?.sourceFile);
+  if (workflow.status !== STATUS.previewReady || !ready) {
+    throw new Error('Canlı yayın öncesinde değişikliklerin hazırlanması ve kontrol edilmesi gerekli.');
   }
   return {...workflow, status: STATUS.publishing, updatedAt: now,
     execution: {...workflow.execution, state: 'publishing', publishStartedAt: now},
