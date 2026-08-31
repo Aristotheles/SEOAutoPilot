@@ -65,6 +65,21 @@ gösterilir.
 
 ## Kontrollü otomasyon
 
+### Toplu canlı yayın — 0.10.0
+
+Onay kuyruğundaki **Toplu yayını incele** düğmesi, seçili projenin uygun
+önerilerini ve kesin değişikliklerini tek listede gösterir. Onay kutusu ve
+**Onaylananları topluca canlıya yayınla** düğmesi hem değişiklikleri hem canlı
+yayını kapsar. Başlık/meta/H1 alanları uygulanır; editoryal maddeler açıkça ayrı
+gösterilir. Dil/profil engelleri, yeni sayfalar, CTR varyant seçimi ve aynı hedefe
+ikinci öneriler toplu kapsama girmez. İncelenen liste değişirse onay reddedilir.
+
+Her sayfa güncel kaynak dalından sırayla hazırlanıp ayrı yayınlanır; tek Firebase
+deploy değildir. İlk hatada kuyruk durur; önceki başarılı yayınlar geri alınmaz.
+Her başarılı sayfada **İncele** bağlantısı gösterilir. İşlem sürerken değişiklik
+uçları kilitlidir. Kuyruk proje verisinde saklanır. Sunucu kapanırsa belirsiz yayın
+otomatik tekrar edilmez; sonuç kontrolü gerekir. Diğer projeler topluca yayınlanmaz.
+
 Firebase önizleme kanalına ayrı yayın yapılmaz. Akış: değişiklikleri onayla →
 ayrı çalışma alanında hazırla ve derlemeyi doğrula → açık canlı yayın onayı →
 Firebase Hosting'e yayınla → Yeni sayfayı gör. Yayın hatası sonrası hazırlanmış

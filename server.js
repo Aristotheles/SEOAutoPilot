@@ -12,9 +12,12 @@ const {createProject, getPrivateProject, listProjects, updateProject, saveProfil
 const google = require('./src/google-search-console');
 const {analysisOptions, reanalyzeReport, assertProfileWorkflow} = require('./src/profile-analysis');
 const connections = require('./src/connection-management');
+const bulkModule=require('./src/bulk-publish');
 const {inspectSite,profileFromInspection} = require('./src/site-inspection');
 const inspections = new Map();
 const deployment = require('./src/deployment');
+const bulkPublisher=bulkModule.createBulkPublisher(require('./src/project-store'),deployment);
+bulkPublisher.recover();
 const {mergeEditorialBacklog} = require('./src/seo-backlog');
 const {beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
   syncWorkflows, transition} = require('./src/workflow');
@@ -34,7 +37,7 @@ function readBody(request) {
   return new Promise((resolve, reject) => {
     let body = '';
     request.on('data', (chunk) => { body += chunk; if (body.length > 64_000) reject(new Error('İstek çok büyük.')); });
-    request.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch (_) { reject(new Error('Geçersiz JSON.')); } });
+    request.on('end', () => { if(bulkPublisher.isBusy()){reject(new Error('Toplu yayın sürüyor; değişiklik isteği durduruldu.'));return;} try { resolve(JSON.parse(body || '{}')); } catch (_) { reject(new Error('Geçersiz JSON.')); } });
     request.on('error', reject);
   });
 }
@@ -116,6 +119,14 @@ function runPublishJob(projectId, workflowId) {
   });
 }
 async function routeApi(request, response, requestUrl) {
+  if(bulkPublisher.isBusy()&&request.method!=='GET'){json(response,409,{error:'Toplu yayın sürüyor; değişiklik işlemleri geçici olarak kilitli.'});return true;}
+  const bulkId=projectIdFrom(requestUrl.pathname,'bulk-publish');
+  if(bulkId){try{
+    const project=getPrivateProject(bulkId);if(!project)throw Error('Proje bulunamadı.');
+    if(request.method==='GET'){json(response,200,{review:bulkModule.plan(project),job:project.bulkPublish||null});return true;}
+    if(request.method==='POST'){json(response,202,{job:bulkPublisher.start(bulkId,await readBody(request))});return true;}
+    json(response,405,{error:'Yöntem desteklenmiyor.'});
+  }catch(error){json(response,400,{error:error.message});}return true;}
   const inspectionRoute=requestUrl.pathname.match(/^\/api\/projects\/([^/]+)\/inspection(?:\/(accept))?$/);
   if(inspectionRoute){
     const id=decodeURIComponent(inspectionRoute[1]);
@@ -157,7 +168,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.9.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.10.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -184,7 +195,7 @@ async function routeApi(request, response, requestUrl) {
       const checked = await deployment.inspectFirebaseConnection(project.deployment);
       const current = getPrivateProject(deploymentId);
       // An in-flight check must never restore a connection the user removed/replaced.
-      if (checked.firebaseAccess?.verified && current?.deployment &&
+      if (!bulkPublisher.isBusy() && checked.firebaseAccess?.verified && current?.deployment &&
           current.deployment.connectedAt === project.deployment.connectedAt &&
           current.deployment.repositoryPath === project.deployment.repositoryPath &&
           current.deployment.firebaseAccount !== checked.firebaseAccess.account) {
@@ -209,6 +220,7 @@ async function routeApi(request, response, requestUrl) {
       if (!current || JSON.stringify(current.deployment) !== JSON.stringify(project.deployment)) {
         throw new Error('Bağlantı kontrol sırasında değiştirildi; yeniden dene.');
       }
+      if(bulkPublisher.isBusy())throw Error('Toplu yayın sürüyor; bağlantı değiştirilemez.');
       const updated = updateProject(project.id, {deployment: {...connection,
         firebaseAccount: checked.firebaseAccess.account}});
       json(response, 200, {project: updated,
@@ -231,6 +243,7 @@ async function routeApi(request, response, requestUrl) {
       const project = getPrivateProject(workflowProjectId);
       if (!project) json(response, 404, {error: 'Proje bulunamadı.'});
       else {
+        if(bulkPublisher.isBusy()){json(response,200,{workflows:project.workflows||[]});return true;}
         const result = projectReport(project);
         const workflows = projectWorkflows(project.id, result.report, project.workflows || []);
         updateProject(project.id, {workflows});
@@ -352,6 +365,7 @@ async function routeApi(request, response, requestUrl) {
       const start = new Date(end); start.setUTCDate(start.getUTCDate() - 27);
       const tables = await google.fetchPerformance(token.accessToken,
           project.searchConsoleProperty, dateValue(start), dateValue(end));
+      if(bulkPublisher.isBusy())throw Error('Toplu yayın sürüyor; senkronizasyon daha sonra yeniden denenebilir.');
       google.assertGeneration(syncId, generation);
       project = getPrivateProject(syncId);
       const report = analyzeExport(tables,

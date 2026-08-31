@@ -189,6 +189,7 @@
 
         <section class="view" id="view-workflows">
           <div class="page-heading compact"><div><p class="eyebrow">KONTROLLÜ OTOMASYON</p><h1>Onay ve uygulama kuyruğu</h1><p>SEO sinyalinden ölçülen sonuca kadar her adımın sahibi ve durumu belli.</p></div><button class="primary-button" id="refreshWorkflows">Akışı yenile</button></div>
+          <section class="panel" id="bulkPublishPanel"><button type="button" class="primary-button" id="reviewBulkPublish">Toplu yayını incele</button><p>Uygun önerileri tek listede onayla; sistem sırayla hazırlayıp canlıya yayınlasın.</p><div id="bulkPublishContent" aria-live="polite"></div></section>
           <div class="workflow-summary">
             <article><span class="summary-icon auto">⚡</span><div><small>Otomatik hazırlanan</small><strong id="automatedCount">0</strong></div></article>
             <article><span class="summary-icon approval">✓</span><div><small>Onay bekleyen</small><strong id="waitingCount">0</strong></div></article>
@@ -311,5 +312,6 @@
   <script src="/app.js" defer></script>
   <script src="/profile.js" defer></script>
   <script src="/settings.js" defer></script>
+  <script src="/bulk-publish.js" defer></script>
 </body>
 </html>

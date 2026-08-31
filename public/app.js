@@ -420,6 +420,8 @@ async function selectProject(id) {
   const project = state.projects.find((item) => item.id === id);
   if (!project) return;
   state.project = project; localStorage.setItem('seo-autopilot-project', id);
+  if(typeof bulkTimer!=='undefined')clearTimeout(bulkTimer);
+  $('#bulkPublishContent').textContent='';$('#reviewBulkPublish').disabled=false;
   $('#projectModal').hidden = true; renderProjects(); await loadReport();
   showToast(`${project.name} projesine geçildi.`);
   await autoSyncOnOpen();

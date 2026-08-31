@@ -101,7 +101,7 @@ function updateProject(id, updates) {
   const index = state.projects.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Proje bulunamadı.');
   const allowed = ['name', 'siteUrl', 'searchConsoleProperty',
-    'csvDirectory', 'oauth', 'lastSyncAt', 'lastSyncReport', 'workflows', 'deployment'];
+    'csvDirectory', 'oauth', 'lastSyncAt', 'lastSyncReport', 'workflows', 'deployment', 'bulkPublish'];
   const clean = Object.fromEntries(Object.entries(updates)
       .filter(([key]) => allowed.includes(key)));
   state.projects[index] = {...state.projects[index], ...clean,
@@ -132,6 +132,7 @@ function getPrivateProject(id) { return getProject(id, {includeSecrets: true}); 
 
 function assertProjectIdle(project) {
   if (!project) throw new Error('Proje bulunamadı.');
+  if(project.bulkPublish?.status==='running')throw new Error('Toplu yayın sürüyor. Tamamlanmasını bekle.');
   if ((project.workflows || []).some((item) => ['APPLYING', 'PUBLISHING'].includes(item.status))) {
     throw new Error('Bu projede önizleme veya yayın işlemi sürüyor. Tamamlanmadan bağlantı/proje kaldırılamaz.');
   }
