@@ -169,6 +169,34 @@ function htmlEscape(value, attribute = false) {
   return attribute ? escaped.replaceAll('"', '&quot;') : escaped;
 }
 
+function seoFields(html) {
+  const text=value=>String(value||'').replace(/<[^>]*>/gu,' ').replace(/\s+/gu,' ').trim()
+      .replaceAll('&amp;','&').replaceAll('&quot;','"').replaceAll('&#39;',"'");
+  const meta=(String(html).match(/<meta\b[^>]*name=["']description["'][^>]*>/iu)?.[0]||
+    String(html).match(/<meta\b[^>]*content=["'][^"']*["'][^>]*name=["']description["'][^>]*>/iu)?.[0]||'');
+  return {title:text(String(html).match(/<title\b[^>]*>([\s\S]*?)<\/title>/iu)?.[1]),
+    meta:text(meta.match(/content=["']([^"']*)["']/iu)?.[1]),
+    h1:text(String(html).match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/iu)?.[1])};
+}
+
+async function verifyLivePage(url, sourceFile, reader=fetch) {
+  const expected=seoFields(fs.readFileSync(sourceFile,'utf8'));
+  let error='';
+  for(let attempt=0;attempt<5;attempt++){
+    try{
+      const target=new URL(url);target.searchParams.set('_seo_verify',Date.now().toString());
+      const response=await reader(target.href,{headers:{'Cache-Control':'no-cache'},redirect:'follow'});
+      if(!response.ok)throw Error(`HTTP ${response.status}`);
+      const actual=seoFields(await response.text());
+      const mismatched=['title','meta','h1'].filter(key=>expected[key]!==actual[key]);
+      if(!mismatched.length)return {verifiedAt:new Date().toISOString(),fields:['title','meta','h1']};
+      error=`Canlı sayfada eşleşmeyen alanlar: ${mismatched.join(', ')}`;
+    }catch(exception){error=exception.message;}
+    if(attempt<4)await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+  throw new Error(`Firebase yayınlandı ancak canlı URL doğrulanamadı. ${error}`);
+}
+
 function targetFile(root, targetPath) {
   const raw = String(targetPath || '').split(/[?#]/u)[0];
   let relative;
@@ -375,16 +403,17 @@ async function publishPreview(workflow, connection, siteUrl) {
     connection.firebaseProject, '--json', '--non-interactive', '--account', authorized.firebaseAccess.account]);
   await runAsync(publishCommand.command, publishCommand.args, execution.worktreePath,
       10 * 60_000);
+  const liveUrl=new URL(workflow.targetPath,siteUrl).href;
+  const liveVerification=await verifyLivePage(liveUrl,path.resolve(execution.worktreePath,execution.sourceFile));
   try {
     await runAsync('git', ['worktree', 'remove', '--force', execution.worktreePath],
         connection.repositoryPath, 60_000);
     await runAsync('git', ['branch', '-d', execution.branch], connection.repositoryPath,
         30_000);
   } catch (_) { /* successful deploy is not invalidated by cleanup failure */ }
-  return {url: new URL(workflow.targetPath, siteUrl).href,
-    revision: execution.revision, pushedBranch: connection.branch};
+  return {url:liveUrl,revision:execution.revision,pushedBranch:connection.branch,liveVerification};
 }
 
 module.exports = {applyWorkflowChanges, buildProject, detectConnection, findPreviewUrl, firebaseInvocation,
   inspectConnection, inspectFirebaseConnection, npmInvocation, projectLayout, targetFile, verifyBuiltPage,
-  preparePreview, publicConnection, publishPreview};
+  preparePreview, publicConnection, publishPreview,seoFields,verifyLivePage};

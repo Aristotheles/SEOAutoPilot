@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const {applyWorkflowChanges, detectConnection, findPreviewUrl, firebaseInvocation,
-  inspectConnection, inspectFirebaseConnection, npmInvocation, targetFile, verifyBuiltPage, projectLayout, publishPreview} = require('../src/deployment');
+  inspectConnection, inspectFirebaseConnection, npmInvocation, targetFile, verifyBuiltPage, projectLayout, publishPreview,verifyLivePage} = require('../src/deployment');
 
 function fixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'seo-deployment-'));
@@ -168,6 +168,14 @@ test('preserves Flutter layout and supports explicit HTML extension there too', 
   fs.writeFileSync(path.join(root, 'web', 'example.html'), '<h1>Example</h1>');
   assert.equal(projectLayout(root).framework, 'flutter');
   assert.equal(targetFile(root, '/example.html'), path.join(root, 'web', 'example.html'));
+});
+
+test('verifies exact title, meta and H1 on the live URL',async()=>{
+  const root=viteFixture();const file=path.join(root,'public','blog','german-b1-vs-b2.html');
+  const html=fs.readFileSync(file,'utf8');
+  const ok=await verifyLivePage('https://example.com/blog/german-b1-vs-b2.html',file,async()=>({ok:true,text:async()=>html}));
+  assert.deepEqual(ok.fields,['title','meta','h1']);
+  await assert.rejects(verifyLivePage('https://example.com/blog/german-b1-vs-b2.html',file,async()=>({ok:true,text:async()=>html.replace('B1 vs B2','Wrong')})),/title/u);
 });
 
 test('runs npm through its Node entry point on Windows', () => {
