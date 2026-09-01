@@ -56,6 +56,66 @@ repository and published site.
 
 Birden fazla site için proje bazlı, insan onaylı Search Console fırsat motoru.
 
+## Ürün turu · Product tour
+
+### 1. Karar odaklı genel bakış · Decision-first overview
+
+![SEOAutoPilot Türkçe genel bakış ekranı](docs/images/dashboard-tr.png)
+
+Genel bakış, Search Console dönemindeki tıklama, gösterim ve CTR değerlerini tek
+başına “iyi/kötü” diye etiketlemek yerine bağlamıyla gösterir. Organik performans
+grafiği eğilimi görünür kılarken **Bugünün odağı**, en güçlü uygulanabilir fırsatı;
+gösterim, ortalama konum ve ürün uyumu kanıtlarıyla birlikte öne çıkarır. Üst
+çubuktaki senkronizasyon rozeti kullanılan verinin tarih ve saatini açıkça belirtir.
+
+The overview keeps clicks, impressions and CTR in context instead of reducing SEO
+to a vanity score. The organic-performance chart exposes the trend, while
+**Today's focus** surfaces the strongest actionable opportunity with its supporting
+impressions, average position and product-fit signals. The synchronization badge
+makes the age of the underlying data explicit.
+
+### 2. Şeffaf uygulama ve izleme kuyruğu · Transparent execution and monitoring
+
+![SEOAutoPilot Türkçe uygulama ve izleme kuyruğu](docs/images/execution-queue-tr.png)
+
+Her kart; öncelik puanını, önerinin türünü, mevcut durumunu ve sıradaki gerçek adımı
+aynı yerde gösterir. `Etki izleniyor` durumundaki işler yeniden yayımlanmaz: sistem
+yayından sonraki 14 ve 28 günlük karşılaştırma dönemini bekler. Ayrıntı ekranı,
+önerilen alanları ve kararın dayanağını gösterir; toplu yayın yalnız uygun ve
+değişmez öneri listesi kullanıcı tarafından açıkça onaylandıktan sonra başlar.
+
+Each card keeps the priority score, recommendation type, current state and next
+real action together. Items marked as being monitored are not published again:
+the system waits for the 14- and 28-day post-release comparison windows. Detail
+views expose the proposed fields and evidence, while batch publishing starts only
+after the user explicitly approves an eligible, immutable change set.
+
+### 3. Çok dilli arayüz, değişmeyen kaynak veri · Localized UI, untouched source data
+
+![SEOAutoPilot English overview](docs/images/dashboard-en.png)
+
+Arayüz Türkçe, İngilizce ve Almanca arasında değiştirilebilir. Dil seçimi menüleri,
+kontrolleri ve sistem açıklamalarını çevirir; Search Console sorgularını, gerçek sayfa
+başlıklarını veya SEO taslaklarını gizlice tercüme etmez. Bu nedenle İngilizce arayüzde
+başka dilde bir hedef sayfa ya da öneri görmek bilinçli ve denetlenebilir davranıştır.
+
+The interface can switch between Turkish, English and German. This localizes menus,
+controls and system guidance without silently translating Search Console queries,
+real page titles or SEO drafts. Seeing a target page or recommendation in another
+language inside the English UI is therefore intentional, traceable behavior—not
+content corruption.
+
+### Temel yetenekler · Core capabilities
+
+- Birbirinden izole çoklu site ve hesap bağlantıları · Isolated multi-site and account connections
+- Search Console API veya CSV dışa aktarımı · Search Console API or CSV exports
+- Kanıta dayalı fırsat puanlama ve `HOLD` kararları · Evidence-based scoring and `HOLD` decisions
+- Kaynak sayfa, canonical ve içerik dili doğrulaması · Source page, canonical and content-language verification
+- Kesin değişiklikleri gösteren insan onay kapısı · Human approval gate with exact proposed changes
+- Güvenli, sıralı toplu yayın ve ilk hatada durma · Safe sequential batch publishing with stop-on-first-failure
+- Yayın sonrasında 14/28 günlük etki takibi · 14/28-day post-release impact monitoring
+- Yerel gizli bilgi saklama ve proje bazlı Firebase seçimi · Local secret storage and project-scoped Firebase selection
+
 Ürünün kapsamı, güvenlik sınırları ve kapanış ölçütleri için
 [`docs/MVP-SPEC.md`](docs/MVP-SPEC.md) belgesi esas alınır.
 
