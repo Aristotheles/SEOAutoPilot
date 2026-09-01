@@ -282,17 +282,41 @@ function failExecution(workflow, error, now = new Date().toISOString()) {
     events: addEvent(workflow, 'FAILED', 'Güncelleme tamamlanamadı', now, 'system')};
 }
 
-function completeMatureMonitoring(workflows, now = new Date().toISOString()) {
+function pageMetricsForWorkflow(report, workflow) {
+  const target=String(workflow.targetPath||'').replace(/\/$/u,'')||'/';
+  const row=(report?.details?.pages||[]).find((page)=>{try{return (new URL(page.url).pathname.replace(/\/$/u,'')||'/')===target;}catch{return false;}});
+  return row?{clicks:Number(row.clicks||0),impressions:Number(row.impressions||0),ctr:Number(row.ctr||0),position:Number(row.position||0)}:null;
+}
+
+function monitoringResult(baseline, current) {
+  const change=(after,before)=>before?((after-before)/before):after?1:0;
+  const changes={clicks:change(current.clicks,baseline.clicks),impressions:change(current.impressions,baseline.impressions),
+    ctr:current.ctr-baseline.ctr,position:baseline.position-current.position};
+  let verdict='stable',recommendation='Değişikliği koru; yeni bir müdahale için daha fazla arama verisi bekle.';
+  if(current.impressions<30){verdict='insufficient_data';recommendation='Karar vermek için veri yetersiz. En az 30 gösterime kadar izlemeyi sürdür.';}
+  else if(changes.position>=2||changes.clicks>=.2||changes.ctr>=.01){verdict='improved';recommendation='Değişiklik olumlu. Koru ve ilgili içeriklerden bu sayfaya iç bağlantı eklemeyi değerlendir.';}
+  else if(changes.position<=-2||changes.clicks<=-.2||changes.ctr<=-.01){verdict='declined';recommendation='Performans geriledi. Arama niyeti ile başlık/meta uyumunu yeniden incele; önceki metne dönüşü değerlendir.';}
+  return {status:'review_ready',verdict,recommendation,baseline,current,changes};
+}
+
+function completeMatureMonitoring(workflows, now = new Date().toISOString(), report = null) {
   const nowMs = new Date(now).getTime();
   return (workflows || []).map((workflow) => {
     if (workflow.status !== STATUS.monitoring || !workflow.monitoringStartedAt) return workflow;
+    const current=pageMetricsForWorkflow(report,workflow);
+    const baseline=workflow.monitoringBaseline||current||{
+      clicks:0,impressions:Number(workflow.brief?.evidence?.impressions||0),ctr:0,
+      position:Number(workflow.brief?.evidence?.position||0)};
+    if(!workflow.monitoringBaseline)return {...workflow,monitoringBaseline:baseline,
+      monitoringBaselineAt:report?.generatedAt||now};
     const elapsed = nowMs - new Date(workflow.monitoringStartedAt).getTime();
     if (elapsed < 28 * 24 * 60 * 60 * 1000) return workflow;
-    return transition(workflow, 'complete', {now, result:{status:'review_ready',
-      message:'28 günlük izleme tamamlandı. Search Console sonuçlarını incele.'}});
+    const result=current?monitoringResult(baseline,current):{status:'review_ready',verdict:'no_current_data',
+      recommendation:'Güncel Search Console verisi bulunamadı. Veriyi yenileyip sonucu tekrar incele.',baseline,current:null,changes:null};
+    return transition(workflow, 'complete', {now,result});
   });
 }
 
-module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, completeMatureMonitoring, failExecution,
+module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, completeMatureMonitoring, failExecution, monitoringResult, pageMetricsForWorkflow,
   finishExecution, finishPublish, priorityFor, recoverPreview, stepsFor, syncWorkflows,
   transition};

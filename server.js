@@ -245,7 +245,7 @@ async function routeApi(request, response, requestUrl) {
       else {
         if(bulkPublisher.isBusy()){json(response,200,{workflows:project.workflows||[]});return true;}
         const result = projectReport(project);
-        const workflows = completeMatureMonitoring(projectWorkflows(project.id, result.report, project.workflows || []));
+        const workflows = completeMatureMonitoring(projectWorkflows(project.id, result.report, project.workflows || []),new Date().toISOString(),result.report);
         updateProject(project.id, {workflows});
         json(response, 200, {workflows});
       }

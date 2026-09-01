@@ -53,10 +53,14 @@ test('monitoring completes automatically after 28 days but not before', () => {
   const workflow = {...syncWorkflows('project-1', {opportunities:[opportunity]})[0],
     status:STATUS.monitoring, monitoringStartedAt:'2026-08-01T00:00:00.000Z',
     execution:{appliedAt:'2026-08-01T00:00:00.000Z'}};
-  assert.equal(completeMatureMonitoring([workflow], '2026-08-28T23:59:59.000Z')[0].status, STATUS.monitoring);
-  const completed=completeMatureMonitoring([workflow], '2026-08-29T00:00:00.000Z')[0];
+  const report={generatedAt:'2026-08-01T00:00:00.000Z',details:{pages:[{url:'https://example.com/growth-guide',clicks:10,impressions:100,ctr:.1,position:12}]}};
+  const tracked=completeMatureMonitoring([workflow], '2026-08-02T00:00:00.000Z',report)[0];
+  assert.equal(completeMatureMonitoring([tracked], '2026-08-28T23:59:59.000Z',report)[0].status, STATUS.monitoring);
+  const current={details:{pages:[{url:'https://example.com/growth-guide',clicks:15,impressions:130,ctr:.115,position:9}]}};
+  const completed=completeMatureMonitoring([tracked], '2026-08-29T00:00:00.000Z',current)[0];
   assert.equal(completed.status, STATUS.completed);
-  assert.match(completed.result.message, /28 günlük/);
+  assert.equal(completed.result.verdict,'improved');
+  assert.match(completed.result.recommendation, /olumlu/);
 });
 
 test('does not allow skipping required workflow stages', () => {
