@@ -282,6 +282,17 @@ function failExecution(workflow, error, now = new Date().toISOString()) {
     events: addEvent(workflow, 'FAILED', 'Güncelleme tamamlanamadı', now, 'system')};
 }
 
-module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, failExecution,
+function completeMatureMonitoring(workflows, now = new Date().toISOString()) {
+  const nowMs = new Date(now).getTime();
+  return (workflows || []).map((workflow) => {
+    if (workflow.status !== STATUS.monitoring || !workflow.monitoringStartedAt) return workflow;
+    const elapsed = nowMs - new Date(workflow.monitoringStartedAt).getTime();
+    if (elapsed < 28 * 24 * 60 * 60 * 1000) return workflow;
+    return transition(workflow, 'complete', {now, result:{status:'review_ready',
+      message:'28 günlük izleme tamamlandı. Search Console sonuçlarını incele.'}});
+  });
+}
+
+module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, completeMatureMonitoring, failExecution,
   finishExecution, finishPublish, priorityFor, recoverPreview, stepsFor, syncWorkflows,
   transition};

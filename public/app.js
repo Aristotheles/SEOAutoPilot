@@ -1,7 +1,8 @@
 'use strict';
 
 const state = {report: null, mode: 'demo', directory: '', filter: 'all',
-  projects: [], project: null, googleStatus: null, workflows: [], deploymentStatus: null};
+  projects: [], project: null, googleStatus: null, workflows: [], deploymentStatus: null,
+  workflowFilter:'actionable'};
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const format = {format:value=>new Intl.NumberFormat(AppI18n.locale()).format(value)};
@@ -199,8 +200,12 @@ function nextStepFor(workflow) {
 function renderWorkflows() {
   const actionableStatuses = new Set(['AWAITING_APPROVAL','APPROVED','APPLYING',
     'PREVIEW_READY','PUBLISHING','PUBLISHED','APPLIED','FAILED']);
-  const visibleWorkflows = state.workflows.filter((workflow) =>
+  const actionableWorkflows = state.workflows.filter((workflow) =>
     actionableStatuses.has(workflow.status) && !workflow.blockedReason && workflow.action !== 'HOLD');
+  const visibleWorkflows = state.workflowFilter === 'monitoring' ? state.workflows.filter((workflow) =>
+    ['MONITORING','COMPLETED'].includes(workflow.status) && workflow.execution?.appliedAt) :
+    state.workflowFilter === 'awaiting' ? actionableWorkflows.filter((workflow) => workflow.status === 'AWAITING_APPROVAL') :
+    state.workflowFilter === 'ready' ? actionableWorkflows.filter((workflow) => ['APPROVED','PREVIEW_READY'].includes(workflow.status)) : actionableWorkflows;
   const counts = state.workflows.reduce((result, workflow) => {
     result[workflow.status] = (result[workflow.status] || 0) + 1; return result;
   }, {});
@@ -209,14 +214,15 @@ function renderWorkflows() {
   }, {});
   const waiting = visibleCounts.AWAITING_APPROVAL || 0;
   $('#approvalCount').textContent = waiting;
-  $('#automatedCount').textContent = visibleWorkflows.length;
+  $('#automatedCount').textContent = actionableWorkflows.length;
   $('#waitingCount').textContent = waiting;
   $('#approvedCount').textContent = (visibleCounts.APPROVED || 0) + (visibleCounts.PREVIEW_READY || 0);
-  $('#monitoringCount').textContent = counts.MONITORING || 0;
+  $('#monitoringCount').textContent = (counts.MONITORING || 0) + (counts.COMPLETED || 0);
+  $$('[data-workflow-filter]').forEach((button) => button.classList.toggle('active', button.dataset.workflowFilter === state.workflowFilter));
   $('#workflowBoard').innerHTML = visibleWorkflows.length ? visibleWorkflows.map((workflow) => {
     const meta = workflowMeta[workflow.status] || workflowMeta.DISCOVERED;
     return `<article class="workflow-card"><span class="priority-rail ${workflow.priority.level}"></span><div class="workflow-copy"><div class="workflow-meta"><span class="priority-label">${workflow.priority.level} · P${workflow.priority.score}</span><span class="workflow-status ${meta.className}">${meta.label}</span></div><h3>${escapeHtml(workflow.title)}</h3><p>${escapeHtml(workflow.brief.action)}</p></div><div class="workflow-score"><strong>${workflow.priority.score}</strong><small>öncelik puanı</small></div><div class="workflow-next"><small>Sonraki adım</small><strong>${escapeHtml(nextStepFor(workflow))}</strong><div class="workflow-actions"><button class="outline-button" data-workflow-detail="${escapeHtml(workflow.id)}">Ayrıntıları incele →</button></div></div></article>`;
-  }).join('') : '<article class="panel workflow-empty"><strong>Şu anda senden işlem bekleyen öneri yok.</strong><br>Performans izleme ve yeni veri bekleyen sayfalar arka planda takip ediliyor.</article>';
+  }).join('') : `<article class="panel workflow-empty"><strong>${state.workflowFilter === 'monitoring' ? 'İzlenen sayfa yok.' : 'Bu grupta senden işlem bekleyen öneri yok.'}</strong><br>${state.workflowFilter === 'monitoring' ? 'Yayınlanan bir sayfada izlemeyi başlattığında burada görünecek.' : 'Performans izleme ve yeni veri bekleyen sayfalar arka planda takip ediliyor.'}</article>`;
   $$('[data-workflow-detail]').forEach((button) => button.addEventListener('click', () =>
     openWorkflowDetail(button.dataset.workflowDetail)));
 }
@@ -349,7 +355,20 @@ async function loadWorkflows() {
   const payload = await response.json();
   if (state.project?.id !== projectId) return;
   if (!response.ok) throw new Error(payload.error || 'İş akışları alınamadı.');
+  notifyCompletedMonitoring(projectId, payload.workflows || []);
   state.workflows = payload.workflows || [];
+}
+function notifyCompletedMonitoring(projectId, workflows) {
+  const completed=workflows.filter((workflow)=>workflow.status==='COMPLETED'&&workflow.completedAt);
+  if(!completed.length)return;
+  const key=`seo-monitoring-notified-${projectId}`;
+  let notified=[];try{notified=JSON.parse(localStorage.getItem(key)||'[]');}catch{notified=[];}
+  const fresh=completed.filter((workflow)=>!notified.includes(`${workflow.id}:${workflow.completedAt}`));
+  if(!fresh.length)return;
+  const values=[...new Set([...notified,...fresh.map((workflow)=>`${workflow.id}:${workflow.completedAt}`)])];
+  try{localStorage.setItem(key,JSON.stringify(values));}catch{/* notification still appears */}
+  const dot=$('#notificationButton .notification-dot');if(dot)dot.hidden=false;
+  showToast(`${fresh.length} sayfanın 28 günlük izlemesi tamamlandı. İzlenen kutusundan sonuçları açabilirsin.`);
 }
 async function loadDeploymentStatus() {
   const projectId = state.project.id;
@@ -597,6 +616,15 @@ $$('[data-open-projects]').forEach((button) => button.addEventListener('click', 
 $$('[data-remove-connection]').forEach((button) => button.addEventListener('click', () => removeConnection(button.dataset.removeConnection)));
 $('#createProjectButton').addEventListener('click', createNewProject);
 $('#refreshWorkflows').addEventListener('click', async () => { await loadWorkflows(); renderWorkflows(); showToast('Öncelikler güncellendi.'); });
+$$('[data-workflow-filter]').forEach((button)=>button.addEventListener('click',()=>{
+  state.workflowFilter=button.dataset.workflowFilter;renderWorkflows();
+  $('#workflowBoard').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+$('#notificationButton').addEventListener('click',()=>{
+  if(!state.project)return;state.workflowFilter='monitoring';setView('workflows');renderWorkflows();
+  $('#notificationButton .notification-dot').hidden=true;
+  $('#workflowBoard').scrollIntoView({behavior:'smooth',block:'start'});
+});
 $$('[data-close-project]').forEach((button) => button.addEventListener('click', () => $('#projectModal').hidden = true));
 $('#googleAction').addEventListener('click', googleAction);
 $('#saveGoogleConfig').addEventListener('click', saveGoogleConfig);

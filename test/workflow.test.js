@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {STATUS, beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
-  priorityFor, recoverPreview, syncWorkflows,
+  completeMatureMonitoring, priorityFor, recoverPreview, syncWorkflows,
   transition} = require('../src/workflow');
 
 const opportunity = {clusterId: 'growth', label: 'Growth guide', locale:'en',
@@ -47,6 +47,16 @@ test('an approved CTR draft can be closed while preserving the existing page', (
   assert.equal(kept.status, STATUS.rejected);
   assert.equal(kept.approvedAt, null);
   assert.match(kept.events.at(-1).label, /korundu/);
+});
+
+test('monitoring completes automatically after 28 days but not before', () => {
+  const workflow = {...syncWorkflows('project-1', {opportunities:[opportunity]})[0],
+    status:STATUS.monitoring, monitoringStartedAt:'2026-08-01T00:00:00.000Z',
+    execution:{appliedAt:'2026-08-01T00:00:00.000Z'}};
+  assert.equal(completeMatureMonitoring([workflow], '2026-08-28T23:59:59.000Z')[0].status, STATUS.monitoring);
+  const completed=completeMatureMonitoring([workflow], '2026-08-29T00:00:00.000Z')[0];
+  assert.equal(completed.status, STATUS.completed);
+  assert.match(completed.result.message, /28 günlük/);
 });
 
 test('does not allow skipping required workflow stages', () => {

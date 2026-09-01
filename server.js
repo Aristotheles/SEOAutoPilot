@@ -20,7 +20,7 @@ const bulkPublisher=bulkModule.createBulkPublisher(require('./src/project-store'
 bulkPublisher.recover();
 const {mergeEditorialBacklog} = require('./src/seo-backlog');
 const {beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
-  syncWorkflows, transition} = require('./src/workflow');
+  completeMatureMonitoring, syncWorkflows, transition} = require('./src/workflow');
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.PORT || 4173);
@@ -245,7 +245,7 @@ async function routeApi(request, response, requestUrl) {
       else {
         if(bulkPublisher.isBusy()){json(response,200,{workflows:project.workflows||[]});return true;}
         const result = projectReport(project);
-        const workflows = projectWorkflows(project.id, result.report, project.workflows || []);
+        const workflows = completeMatureMonitoring(projectWorkflows(project.id, result.report, project.workflows || []));
         updateProject(project.id, {workflows});
         json(response, 200, {workflows});
       }
