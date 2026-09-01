@@ -290,7 +290,7 @@ async function buildProject(root, account) {
   } else if (layout.releaseBuilder === 'vite_release') {
     if (!fs.existsSync(path.join(root, 'package-lock.json'))) throw new Error('Güvenli Vite derlemesi için package-lock.json gerekli.');
     // Install inside the isolated worktree, never copy the source site's node_modules or secrets.
-    const install = npmInvocation(['ci', '--ignore-scripts', '--no-audit', '--no-fund']);
+    const install = npmInvocation(['ci', '--include=dev', '--ignore-scripts', '--no-audit', '--no-fund']);
     await runAsync(install.command, install.args, root);
     const build = npmInvocation(['run', 'build']);
     await runAsync(build.command, build.args, root);

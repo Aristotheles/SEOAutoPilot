@@ -62,7 +62,8 @@ function decrypt(value, dataDirectory) {
 }
 
 function sanitizeError(error, fallback = 'İşlem güvenli biçimde tamamlanamadı.') {
-  const message = String(error?.message || '').replace(/[\r\n\t]+/gu, ' ').trim();
+  const raw = typeof error === 'string' ? error : error?.message;
+  const message = String(raw || '').replace(/[\r\n\t]+/gu, ' ').trim();
   if (!message) return fallback;
   return message.replace(/[A-Za-z]:\\[^\s"']+/gu, '[yerel-yol]')
       .replace(/(?:access|refresh|id)[_-]?token\s*[:=]\s*[^\s,}]+/giu, 'token=[gizlendi]')

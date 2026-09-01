@@ -40,4 +40,8 @@ test('security responses block framing, sniffing and broad browser capabilities'
 test('operator errors redact paths and token-shaped values', () => {
   const value = sanitizeError(new Error('failed C:\\Users\\name\\secret access_token=private-value'));
   assert.doesNotMatch(value, /Users|private-value/u);
+  const childOutput = sanitizeError("'tsc' is not recognized as an internal or external command.",
+      'node.exe çalıştırılamadı.');
+  assert.match(childOutput, /tsc.*not recognized/u);
+  assert.doesNotMatch(childOutput, /node\.exe çalıştırılamadı/u);
 });

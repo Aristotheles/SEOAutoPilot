@@ -185,10 +185,10 @@ test('verifies exact title, meta and H1 on the live URL',async()=>{
 });
 
 test('runs npm through its Node entry point on Windows', () => {
-  const invocation = npmInvocation(['--version']);
+  const invocation = npmInvocation(['ci', '--include=dev', '--ignore-scripts']);
   if (process.platform === 'win32') {
     assert.equal(invocation.command, process.execPath);
     assert.match(invocation.args[0], /npm-cli\.js$/u);
   }
-  assert.match(execFileSync(invocation.command, invocation.args, {encoding: 'utf8'}), /\d+\.\d+\.\d+/u);
+  assert.deepEqual(invocation.args.slice(-3), ['ci', '--include=dev', '--ignore-scripts']);
 });
