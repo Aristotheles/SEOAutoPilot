@@ -29,15 +29,15 @@ test('disconnect invalidates pending callbacks and in-flight requests for only t
 
 test('global removal clears tokens and persists disabled state even with environment credentials', () => {
   process.env.GOOGLE_CLIENT_ID = 'env-id'; process.env.GOOGLE_CLIENT_SECRET = 'env-secret';
-  store.updateProject('lingodecoder', {oauth: {refreshToken: 'test-token'}});
-  const old = google.generationFor('lingodecoder');
+  const selected=store.listProjects()[0];store.updateProject(selected.id, {oauth: {refreshToken: 'test-token'}});
+  const old = google.generationFor(selected.id);
   assert.throws(() => management.removeGoogleConfig('wrong'), /onay/u);
   assert.equal(google.configStatus().configured, true);
   management.removeGoogleConfig('REMOVE_GOOGLE_CONFIG');
   assert.equal(google.configStatus().configured, false);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, 'google-oauth.json'), 'utf8')), {disabled: true});
-  assert.equal(store.getPrivateProject('lingodecoder').oauth, null);
-  assert.throws(() => google.assertGeneration('lingodecoder', old), /kaldırıldı/u);
+  assert.equal(store.getPrivateProject(selected.id).oauth, null);
+  assert.throws(() => google.assertGeneration(selected.id, old), /kaldırıldı/u);
   delete process.env.GOOGLE_CLIENT_ID; delete process.env.GOOGLE_CLIENT_SECRET;
   google.saveConfig({clientId: 'new-client', clientSecret: 'new-secret'});
   assert.equal(google.configStatus().configured, true);
@@ -77,7 +77,7 @@ test('removal endpoints require confirmation, isolate projects, preserve files a
     store.updateProject(id, {workflows: []});
     assert.equal((await request(uri, 'DELETE', {confirmation: id})).status, 200);
     assert.equal(fs.readFileSync(marker, 'utf8'), 'keep');
-    assert.ok(store.getProject('lingodecoder'));
+    assert.ok(store.listProjects().length>=1);
     assert.equal((await request('/api/google/config', 'DELETE', {confirmation: 'wrong'})).status, 400);
     assert.equal((await request('/api/google/config', 'DELETE', {confirmation: 'REMOVE_GOOGLE_CONFIG'})).body.configured, false);
     for (const p of store.listProjects()) assert.equal((await request(`/api/projects/${p.id}`, 'DELETE', {confirmation: p.id})).status, 200);

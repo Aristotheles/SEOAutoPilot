@@ -16,14 +16,13 @@ test.after(() => fs.rmSync(directory, {recursive: true, force: true}));
 test('creates and isolates multiple SEO projects', () => {
   const created = store.createProject({name: 'Example Commerce', siteUrl: 'https://shop.example.com'});
   const projects = store.listProjects();
-  assert.equal(projects.length, 2);
+  assert.equal(projects.length, 1);
   assert.equal(created.searchConsoleProperty, 'sc-domain:shop.example.com');
-  assert.equal(projects[0].id, 'lingodecoder');
-  assert.equal(projects[1].id, created.id);
+  assert.equal(projects[0].id, created.id);
 });
 
 test('never exposes OAuth tokens in public project objects', () => {
-  const project = store.listProjects()[1];
+  const project = store.listProjects()[0];
   store.updateProject(project.id, {oauth: {refreshToken: 'private-token'}});
   const publicValue = store.getProject(project.id);
   const privateValue = store.getPrivateProject(project.id);
@@ -33,14 +32,13 @@ test('never exposes OAuth tokens in public project objects', () => {
 });
 
 test('stores deployment connections per project without exposing the requested alias', () => {
-  const project = store.listProjects()[1];
+  const project = store.listProjects()[0];
   store.updateProject(project.id, {deployment: {source: 'local_git',
     requestedPath: 'C:\\Alias', repositoryPath: 'C:\\RealRepo', branch: 'main',
     provider: 'firebase_hosting'}});
   const publicValue = store.getProject(project.id);
   assert.equal(publicValue.deployment.repositoryPath, 'C:\\RealRepo');
   assert.equal(publicValue.deployment.requestedPath, undefined);
-  assert.equal(store.getProject('lingodecoder').deployment, null);
 });
 
 test('parallel processes cannot overwrite each other project mutations', async () => {

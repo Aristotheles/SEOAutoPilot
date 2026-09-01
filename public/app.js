@@ -151,7 +151,7 @@ function queryRows() {
     return {...row, cluster: row.clusterLabel,
       action: opportunity?.action || 'HOLD'};
   });
-  return state.report.opportunities.flatMap((item) => item.matchedQueries.map((query) => ({query, cluster: item.label, impressions: 0, position: item.queryMetrics.position, action: item.action})));
+  return state.report.opportunities.flatMap((item) => item.matchedQueries.map((query) => {const detail=(state.report.details?.queries||[]).find(row=>row.query===query)||{};return {query, cluster: item.label, impressions:detail.impressions??item.queryMetrics.impressions, position:detail.position??item.queryMetrics.position, action:item.action};}));
 }
 function renderQueries() {
   const search = ($('#querySearch').value || '').toLocaleLowerCase('tr');
@@ -372,8 +372,15 @@ async function loadReport() {
   if (state.project?.id !== projectId) return;
   if (!response.ok) throw new Error(payload.error || 'Veri alınamadı.');
   Object.assign(state, payload);
+  await evaluateMonitoring();
   await Promise.all([loadWorkflows(), loadDeploymentStatus()]);
   renderAll();
+}
+async function evaluateMonitoring(){
+  const projectId=state.project.id;
+  const response=await fetch(`/api/projects/${encodeURIComponent(projectId)}/monitoring/evaluate`,{method:'POST'});
+  const payload=await response.json();
+  if(!response.ok)throw new Error(payload.error||'İzleme değerlendirmesi yapılamadı.');
 }
 async function loadWorkflows() {
   const projectId = state.project.id;
@@ -641,7 +648,7 @@ $('#projectMenuButton').addEventListener('click', () => { renderProjects(); $('#
 $$('[data-open-projects]').forEach((button) => button.addEventListener('click', () => $('#projectMenuButton').click()));
 $$('[data-remove-connection]').forEach((button) => button.addEventListener('click', () => removeConnection(button.dataset.removeConnection)));
 $('#createProjectButton').addEventListener('click', createNewProject);
-$('#refreshWorkflows').addEventListener('click', async () => { await loadWorkflows(); renderWorkflows(); showToast('Öncelikler güncellendi.'); });
+$('#refreshWorkflows').addEventListener('click', async () => { await evaluateMonitoring();await loadWorkflows(); renderWorkflows(); showToast('İzleme ve uygulama kuyruğu güncellendi.'); });
 $$('[data-workflow-filter]').forEach((button)=>button.addEventListener('click',()=>{
   state.workflowFilter=button.dataset.workflowFilter;renderWorkflows();
   $('#workflowBoard').scrollIntoView({behavior:'smooth',block:'start'});

@@ -30,3 +30,13 @@ test('rejects a directory without recognized Search Console files', (context) =>
   context.after(() => fs.rmSync(directory, {recursive: true, force: true}));
   assert.throws(() => loadExport(directory), {code: 'INVALID_EXPORT'});
 });
+
+test('accepts English and German Search Console export filenames', (context) => {
+  for(const [chart,pages] of [['Chart.csv','Pages.csv'],['Diagramm.csv','Seiten.csv']]){
+    const directory=fs.mkdtempSync(path.join(os.tmpdir(),'seo-localized-'));
+    context.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+    fs.writeFileSync(path.join(directory,chart),'Date,Clicks,Impressions,CTR,Position\n2026-08-01,1,20,5%,10\n');
+    fs.writeFileSync(path.join(directory,pages),'Page,Clicks,Impressions,CTR,Position\nhttps://example.com/guide,1,20,5%,10\n');
+    assert.equal(loadExport(directory).report.summary.impressions,20);
+  }
+});

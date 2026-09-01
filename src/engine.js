@@ -115,7 +115,7 @@ function recommend({cluster, page, queryMetrics, activeDays}) {
   };
 }
 
-function genericPageOpportunities(pages, activeDays) {
+function genericPageOpportunities(pages, queries, activeDays) {
   return [...pages].sort((left, right) => right.impressions - left.impressions)
       .slice(0, 12).map((page, index) => {
         let pathname = page.key;
@@ -130,9 +130,13 @@ function genericPageOpportunities(pages, activeDays) {
           reason: 'Sayfa görünür durumda; başlık ve açıklama testi tıklamayı artırabilir.'};
         else recommendation = {action: ACTION.hold,
           reason: 'Mevcut performansı değiştirmek için yeterli olumsuz sinyal yok.'};
+        const tokens=decodeURIComponent(pathname).toLocaleLowerCase().split(/[^\p{L}\p{N}]+/gu)
+            .filter(token=>token.length>=3&&!['html','blog','page'].includes(token));
+        const matched=queries.filter(query=>tokens.some(token=>query.key.toLocaleLowerCase().includes(token)));
         return {clusterId: `page_${index}`, label, locale: 'und', productFit: 3,
-          targetPath: pathname, queryMetrics: {...page},
-          pageMetrics: {...page, url: page.key, key: undefined}, matchedQueries: [],
+          targetPath: pathname, queryMetrics: matched.length?summarize(matched):{...page},
+          pageMetrics: {...page, url: page.key, key: undefined}, matchedQueries: matched.map(row=>row.key),
+          queryEvidence:matched.length?'url_token_match':'page_level_only',
           confidence: confidenceFor(page.impressions, activeDays), ...recommendation};
       });
 }
@@ -171,7 +175,7 @@ function analyzeExport(tables, options = {}) {
     };
   });
   const opportunities = clusters.length ? clusteredOpportunities :
-    genericPageOpportunities(pages, activeDays);
+    genericPageOpportunities(pages, queries, activeDays);
 
   return {
     schemaVersion: 1,

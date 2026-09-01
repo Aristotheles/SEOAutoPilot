@@ -6,18 +6,19 @@ const {parseCsv} = require('./csv');
 const {analyzeExport} = require('./engine');
 
 const FILES = Object.freeze({
-  chart: 'Grafik.csv',
-  queries: 'Sorgular.csv',
-  pages: 'Sayfa sayısı.csv',
-  devices: 'Cihazlar.csv',
-  countries: 'Ülkeler.csv',
-  filters: 'Filtreler.csv',
-  searchAppearance: 'Arama görünümü.csv',
+  chart: ['Grafik.csv','Chart.csv','Diagramm.csv'],
+  queries: ['Sorgular.csv','Queries.csv','Suchanfragen.csv'],
+  pages: ['Sayfa sayısı.csv','Pages.csv','Seiten.csv'],
+  devices: ['Cihazlar.csv','Devices.csv','Geräte.csv'],
+  countries: ['Ülkeler.csv','Countries.csv','Länder.csv'],
+  filters: ['Filtreler.csv','Filters.csv','Filter.csv'],
+  searchAppearance: ['Arama görünümü.csv','Search appearance.csv','Darstellung in der Suche.csv'],
 });
 
-function readTable(directory, fileName) {
-  const filePath = path.join(directory, fileName);
-  return fs.existsSync(filePath) ? parseCsv(fs.readFileSync(filePath, 'utf8')) : [];
+function readTable(directory, fileNames) {
+  const names=Array.isArray(fileNames)?fileNames:[fileNames];
+  const selected=names.find(fileName=>fs.existsSync(path.join(directory,fileName)));
+  return selected ? parseCsv(fs.readFileSync(path.join(directory,selected), 'utf8')) : [];
 }
 
 function loadExport(directory, options = {}) {

@@ -150,7 +150,9 @@ function syncWorkflows(projectId, report, existing = [], profile) {
     return createWorkflow(projectId, opportunity, byId.get(id), profile);
   });
   const seen = new Set(current.map(w=>w.id));
-  const history = existing.filter(w=>!seen.has(w.id) && w.source !== 'editorial_backlog').map(w=>
+  const currentPaths=new Set(current.map(w=>w.targetPath));
+  const history = existing.filter(w=>!seen.has(w.id) && w.source !== 'editorial_backlog' &&
+    (!currentPaths.has(w.targetPath)||w.execution?.appliedAt)).map(w=>
     w.execution?.appliedAt || ['APPLYING','PUBLISHING','PUBLISHED','MONITORING','COMPLETED'].includes(w.status) ? w :
       {...w, blockedReason:'Bu görev güncel analizde yer almıyor; eski öneriyle işlem yapılmaz.', approvedAt:null, execution:null});
   return [...current,...history].sort((left, right) => right.priority.score - left.priority.score);

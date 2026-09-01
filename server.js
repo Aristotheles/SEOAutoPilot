@@ -249,15 +249,18 @@ async function routeApi(request, response, requestUrl) {
     try {
       const project = getPrivateProject(workflowProjectId);
       if (!project) json(response, 404, {error: 'Proje bulunamadı.'});
-      else {
-        if(bulkPublisher.isBusy()){json(response,200,{workflows:project.workflows||[]});return true;}
-        const result = projectReport(project);
-        const workflows = completeMatureMonitoring(projectWorkflows(project.id, result.report, project.workflows || []),new Date().toISOString(),result.report);
-        updateProject(project.id, {workflows});
-        json(response, 200, {workflows});
-      }
+      else json(response, 200, {workflows:project.workflows||[]});
     } catch (error) { json(response, 400, {error: error.message}); }
     return true;
+  }
+  const monitoringId=projectIdFrom(requestUrl.pathname,'monitoring/evaluate');
+  if(request.method==='POST'&&monitoringId){
+    try{
+      const project=getPrivateProject(monitoringId);if(!project)throw Error('Proje bulunamadı.');
+      const report=projectReport(project).report;
+      const workflows=completeMatureMonitoring(project.workflows||[],new Date().toISOString(),report);
+      updateProject(project.id,{workflows});json(response,200,{workflows});
+    }catch(error){json(response,400,{error:error.message});}return true;
   }
   const workflowAction = requestUrl.pathname.match(
       /^\/api\/projects\/([^/]+)\/workflows\/([^/]+)\/action$/u);

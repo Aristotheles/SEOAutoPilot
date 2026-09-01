@@ -12,14 +12,6 @@ const DATA_DIR = process.env.SEO_AUTOPILOT_DATA_DIR ?
 const STATE_FILE = path.join(DATA_DIR, 'projects.json');
 const LOCK_FILE = path.join(DATA_DIR, 'projects.lock');
 const LOCK_TIMEOUT_MS = 5000;
-const starterProject = Object.freeze({
-  id: 'lingodecoder', name: 'LingoDecoder', siteUrl: 'https://lingodecoder.de',
-  searchConsoleProperty: 'sc-domain:lingodecoder.de', locales: ['tr', 'en'],
-  status: 'active', createdAt: '2026-08-29T00:00:00.000Z',
-  updatedAt: '2026-08-29T00:00:00.000Z', csvDirectory: '', oauth: null,
-  lastSyncAt: null, lastSyncReport: null, workflows: [], deployment: null,
-});
-
 function migrateProject(project) {
   if (project.profile) return project;
   const profile = defaultProfile(project);
@@ -31,7 +23,7 @@ function migrateProject(project) {
   }
   return {...project, profile};
 }
-function initialState() { return {schemaVersion: 2, projects: [migrateProject({...starterProject})]}; }
+function initialState() { return {schemaVersion: 2, projects: []}; }
 function readState() {
   if (!fs.existsSync(STATE_FILE)) return initialState();
   let value;
