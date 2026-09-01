@@ -110,7 +110,12 @@ Analiz motoru mevcut Search Console CSV dışa aktarımlarını okuyarak:
 - yetersiz veride `HOLD` kararı verir,
 - JSON formatında denetlenebilir bir rapor üretir.
 
-Otomatik yayın bu sürümün kapsamında değildir.
+Arka planda sessiz yayın bu sürümün kapsamında değildir. Tekil akışta taslak
+onayı yalnız hazırlık izni verir; canlı yayın ayrıca onaylanır. Toplu akışta ise
+son ekranda gösterilen kesin sayfalar ve alan değerleri için verilen açık onay,
+yalnız o değişmez listeyi sırayla canlıya yayınlama iznidir. Liste değişirse onay
+jetonu geçersiz olur; ilk hatada kalan sıra durur ve önceki başarılar otomatik
+geri alınmaz.
 
 ## Gereksinim
 
@@ -174,6 +179,16 @@ Kaldırma uçları DELETE isteği ve hedefe özel açık onay gerektirir.
 ```powershell
 npm test
 ```
+
+Testlerle birlikte Git'e izlenen dosyalarda bilinen anahtar/token imzalarını
+taramak için:
+
+```powershell
+npm run verify
+```
+
+`data/`, OAuth yapılandırması, raporlar, yedekler ve geçici çalışma kopyaları
+Git dışında tutulur. API yanıtları refresh token veya OAuth client secret içermez.
 
 ## Search Console dışa aktarımını analiz etme
 

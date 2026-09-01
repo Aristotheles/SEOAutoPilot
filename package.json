@@ -6,6 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "test": "node --test test/*.test.js",
+    "check:secrets": "node bin/check-secrets.mjs",
+    "verify": "npm test && npm run check:secrets",
     "analyze": "node bin/analyze-export.mjs",
     "start": "node server.js"
   },
