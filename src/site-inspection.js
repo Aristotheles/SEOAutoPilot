@@ -65,7 +65,7 @@ function extract(html,url) {
   const clean=blockedMarkup(html);
   const declared=language(attrs(clean.match(/<html\b[^>]*>/i)?.[0]||'').lang);
   const links=[...clean.matchAll(/<(?:a|link)\b[^>]*>/gi)].map(m=>attrs(m[0]));
-  const title=decode(clean.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||'').replace(/<[^>]*>/g,'').trim().slice(0,180);
+  const title=decode(clean.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);
   const description=[...clean.matchAll(/<meta\b[^>]*>/gi)].map(m=>attrs(m[0])).find(a=>a.name?.toLowerCase()==='description')?.content?.slice(0,1000)||'';
   const styles=links.filter(a=>(a.rel||'').split(/\s+/).includes('stylesheet')).map(a=>a.href).filter(Boolean).slice(0,8);
   const text=clean.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();

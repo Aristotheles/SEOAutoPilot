@@ -16,6 +16,12 @@ test('extracts declared languages and never executes scripts or guesses thin con
   assert.equal(extract(`<html lang="de"><style>bad ${'fake content '.repeat(30)}</style ><body>Kurz</body></html>`,project.siteUrl).language,null);
   assert.equal(extract(html('invalid-language!'),project.siteUrl).language,null);
 });
+
+test('removed title markup cannot join into a new executable tag',()=>{
+  const page=extract(`<html lang="en"><head><title>Safe&lt;<b></b>script&gt;Title</title></head><body>${'Useful content. '.repeat(25)}</body></html>`,project.siteUrl);
+  assert.equal(page.title,'Safe script>Title');
+  assert.doesNotMatch(page.title,/<script/iu);
+});
 test('discovers sitemap languages, excludes external URLs and blocks unknown pages',async()=>{
   const requested=[];
   const reader=async url=>{requested.push(url);return {url,type:'text/html',body:url.endsWith('/sitemap.xml')?'<urlset><url><loc>https://example.com/de/page</loc></url><url><loc>https://example.com/unknown</loc></url><url><loc>https://evil.example/page</loc></url></urlset>':url.endsWith('/unknown')?'<html lang="en"><body>Loading</body></html>':html(url.endsWith('/de/page')?'de':'tr')};};
