@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const {spawn} = require('node:child_process');
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'seo-projects-'));
 process.env.SEO_AUTOPILOT_DATA_DIR = directory;
@@ -40,4 +41,18 @@ test('stores deployment connections per project without exposing the requested a
   assert.equal(publicValue.deployment.repositoryPath, 'C:\\RealRepo');
   assert.equal(publicValue.deployment.requestedPath, undefined);
   assert.equal(store.getProject('lingodecoder').deployment, null);
+});
+
+test('parallel processes cannot overwrite each other project mutations', async () => {
+  const modulePath=path.join(__dirname,'../src/project-store.js');
+  const jobs=Array.from({length:10},(_,index)=>new Promise((resolve,reject)=>{
+    const code=`const s=require(${JSON.stringify(modulePath)});s.createProject({name:'Parallel ${index}',siteUrl:'https://parallel-${index}.example.com'});`;
+    const child=spawn(process.execPath,['-e',code],{env:{...process.env,SEO_AUTOPILOT_DATA_DIR:directory},stdio:'pipe'});
+    let error='';child.stderr.on('data',(chunk)=>{error+=chunk;});child.on('error',reject);
+    child.on('exit',(status)=>status===0?resolve():reject(new Error(error||`child ${status}`)));
+  }));
+  await Promise.all(jobs);
+  const projects=store.listProjects();
+  for(let index=0;index<10;index++)assert.ok(projects.some((project)=>project.siteUrl===`https://parallel-${index}.example.com`));
+  assert.equal(fs.existsSync(path.join(directory,'projects.lock')),false);
 });
