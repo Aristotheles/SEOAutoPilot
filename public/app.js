@@ -1,6 +1,6 @@
 'use strict';
 
-const state = {report: null, mode: 'demo', directory: '', filter: 'all',
+const state = {report: null, mode: 'demo', directory: '', filter: 'decision',
   projects: [], project: null, googleStatus: null, workflows: [], deploymentStatus: null,
   workflowFilter:'actionable'};
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -15,7 +15,7 @@ const actionMeta = {
 };
 const confidenceLabel = {very_low: 'Çok düşük', low: 'Düşük', medium: 'Orta', high: 'Yüksek', very_high: 'Çok yüksek'};
 const viewLabels = {overview: 'Genel bakış', opportunities: 'Fırsatlar',
-  workflows: 'Onay kuyruğu', queries: 'Sorgular', pages: 'Sayfalar',
+  workflows: 'Uygulama kuyruğu', queries: 'Sorgular', pages: 'Sayfalar',
   data: 'Veri kaynakları', profile:'Site profili',settings:'Ayarlar'};
 const workflowMeta = {
   PLANNED: {label: 'İçerik planında', className: 'planned'},
@@ -86,6 +86,7 @@ function renderChart() {
 
 function renderOverview() {
   const report = state.report;
+  const decisions = decisionOpportunities();
   const score = scoreFor(report);
   $('#visibilityScore').textContent = score;
   $('#scoreRing').style.setProperty('--score', score);
@@ -93,11 +94,11 @@ function renderOverview() {
   $('#impressionsMetric').textContent = format.format(report.summary.impressions);
   $('#ctrMetric').textContent = percent(report.summary.ctr);
   $('#activeDays').textContent = `${report.summary.activeDays} aktif gün`;
-  $('#opportunityCount').textContent = report.opportunities.length;
-  $('#headingOpportunityCount').textContent = `${report.opportunities.length} SEO sinyali`;
+  $('#opportunityCount').textContent = decisions.length;
+  $('#headingOpportunityCount').textContent = `${decisions.length} yeni karar`;
   $('#lastAnalysis').textContent = new Date(report.generatedAt).toLocaleString(AppI18n.locale(), {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
   renderChart();
-  const focus = report.opportunities.find((item) => item.action === 'UPDATE_EXISTING') || report.opportunities[0];
+  const focus = decisions.find((item) => item.action === 'UPDATE_EXISTING') || decisions[0];
   if (focus) {
     $('#focusTitle').textContent = `${focus.label} sayfasını güçlendir`;
     $('#focusReason').textContent = focus.reason;
@@ -106,25 +107,40 @@ function renderOverview() {
     $('#focusFit').textContent = `${focus.productFit}/5`;
     $('[data-open-focus]').onclick = () => openDrawer(focus);
   } else {
-    $('#focusTitle').textContent = 'İlk veriyi bağla';
-    $('#focusReason').textContent = 'Search Console API veya CSV bağlandığında en değerli SEO hamlesi burada görünecek.';
+    $('#focusTitle').textContent = 'Yeni karar bekleyen fırsat yok';
+    $('#focusReason').textContent = 'Mevcut işler uygulama veya izleme aşamasında. Yeni Search Console sinyali geldiğinde burada görünecek.';
     $('#focusImpressions').textContent = '0'; $('#focusPosition').textContent = '—';
     $('#focusFit').textContent = '—'; $('[data-open-focus]').onclick = () => setView('data');
   }
-  $('#opportunityPreview').innerHTML = report.opportunities.slice(0, 3).map((item) => {
+  $('#opportunityPreview').innerHTML = decisions.slice(0, 3).map((item) => {
     const meta = actionMeta[item.action] || actionMeta.HOLD;
     return `<div class="opportunity-row"><span class="opportunity-symbol">${meta.icon}</span><div class="opportunity-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.targetPath)}</small></div><span class="action-chip ${meta.className}">${meta.label}</span><span class="opportunity-metric"><small>Gösterim</small><strong>${number(item.queryMetrics.impressions)}</strong></span><button class="row-arrow" data-detail="${escapeHtml(item.clusterId)}">→</button></div>`;
-  }).join('');
+  }).join('') || '<p class="workflow-empty">Yeni karar bekleyen SEO sinyali yok.</p>';
   $$('[data-detail]').forEach((button) => button.onclick = () => openDrawer(report.opportunities.find((item) => item.clusterId === button.dataset.detail)));
 }
 
+function workflowForOpportunity(item) {
+  return state.workflows.find((workflow) => workflow.opportunityId === item.clusterId &&
+    workflow.targetPath === item.targetPath && !workflow.blockedReason);
+}
+function decisionOpportunities() {
+  return (state.report?.opportunities || []).filter((item) => {
+    if (item.action === 'HOLD') return false;
+    const workflow = workflowForOpportunity(item);
+    return !workflow || ['DISCOVERED','AWAITING_APPROVAL'].includes(workflow.status);
+  });
+}
+
 function renderOpportunities() {
-  const items = state.filter === 'all' ? state.report.opportunities : state.report.opportunities.filter((item) => item.action === state.filter);
+  const decisions = decisionOpportunities();
+  const items = state.filter === 'decision' ? decisions : state.filter === 'HOLD' ?
+    state.report.opportunities.filter((item) => item.action === 'HOLD') :
+    decisions.filter((item) => item.action === state.filter);
   $('#opportunityBoard').innerHTML = items.length ? items.map((item) => {
     const meta = actionMeta[item.action] || actionMeta.HOLD;
-    const dots = Array.from({length: 5}, (_, index) => `<i class="${index < item.productFit ? 'on' : ''}"></i>`).join('');
-    return `<article class="opportunity-card"><div class="opportunity-card-top"><span class="action-chip ${meta.className}">${meta.label}</span><span class="fit-dots" title="Ürün uyumu ${item.productFit}/5">${dots}</span></div><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.reason)}</p><div class="card-metrics"><span><small>Gösterim</small><strong>${number(item.queryMetrics.impressions)}</strong></span><span><small>Ort. konum</small><strong>${number(item.pageMetrics?.position || item.queryMetrics.position, 1)}</strong></span><span><small>Eşleşen sorgu</small><strong>${item.matchedQueries.length}</strong></span></div><div class="card-footer"><span class="confidence">Güven: <strong>${confidenceLabel[item.confidence] || item.confidence}</strong></span><button class="outline-button" data-card-detail="${escapeHtml(item.clusterId)}">Detayı aç →</button></div></article>`;
-  }).join('') : '<article class="panel"><p>Bu filtrede fırsat bulunmuyor.</p></article>';
+    const page = item.pageMetrics || item.queryMetrics || {};
+    return `<article class="opportunity-card"><div class="opportunity-card-top"><span class="action-chip ${meta.className}">${meta.label}</span><span class="confidence">Güven: <strong>${confidenceLabel[item.confidence] || item.confidence}</strong></span></div><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.reason)}</p><div class="card-metrics opportunity-metrics"><span><small>Tıklama</small><strong>${number(page.clicks)}</strong></span><span><small>Gösterim</small><strong>${number(page.impressions)}</strong></span><span><small>CTR</small><strong>${percent(page.ctr)}</strong></span><span><small>Ort. konum</small><strong>${number(page.position, 1)}</strong></span></div><div class="card-footer"><span class="confidence">${item.matchedQueries.length ? `${item.matchedQueries.length} sorgu eşleşti` : 'Sorgu–sayfa eşlemesi bekliyor'}</span><button class="outline-button" data-card-detail="${escapeHtml(item.clusterId)}">${item.action === 'HOLD' ? 'Neden bekleniyor?' : 'Kararı incele'} →</button></div></article>`;
+  }).join('') : `<article class="panel workflow-empty"><strong>${state.filter === 'decision' ? 'Yeni karar bekleyen fırsat yok.' : 'Bu grupta kayıt yok.'}</strong><br>${state.filter === 'decision' ? 'Yayınlanmış, izlenen ve reddedilmiş kayıtlar bu ekranda tekrar gösterilmez.' : ''}</article>`;
   $$('[data-card-detail]').forEach((button) => button.onclick = () => openDrawer(state.report.opportunities.find((item) => item.clusterId === button.dataset.cardDetail)));
 }
 
@@ -198,7 +214,7 @@ function nextStepFor(workflow) {
   return 'Yeni veri eşiğini otomatik olarak bekle';
 }
 function renderWorkflows() {
-  const actionableStatuses = new Set(['AWAITING_APPROVAL','APPROVED','APPLYING',
+  const actionableStatuses = new Set(['APPROVED','APPLYING',
     'PREVIEW_READY','PUBLISHING','PUBLISHED','APPLIED','FAILED']);
   const actionableWorkflows = state.workflows.filter((workflow) =>
     actionableStatuses.has(workflow.status) && !workflow.blockedReason && workflow.action !== 'HOLD');
@@ -212,8 +228,8 @@ function renderWorkflows() {
   const visibleCounts = visibleWorkflows.reduce((result, workflow) => {
     result[workflow.status] = (result[workflow.status] || 0) + 1; return result;
   }, {});
-  const waiting = visibleCounts.AWAITING_APPROVAL || 0;
-  $('#approvalCount').textContent = waiting;
+  const waiting = decisionOpportunities().length;
+  $('#approvalCount').textContent = actionableWorkflows.length;
   $('#automatedCount').textContent = actionableWorkflows.length;
   $('#waitingCount').textContent = waiting;
   $('#approvedCount').textContent = (visibleCounts.APPROVED || 0) + (visibleCounts.PREVIEW_READY || 0);
@@ -329,6 +345,8 @@ function setView(name) {
 
 function openDrawer(item) {
   if (!item) return;
+  const workflow = workflowForOpportunity(item);
+  if (workflow && item.action !== 'HOLD') { openWorkflowDetail(workflow.id); return; }
   const meta = actionMeta[item.action] || actionMeta.HOLD;
   $('#drawerContent').innerHTML = `<span class="drawer-kicker">${meta.label} · ${confidenceLabel[item.confidence]} güven</span><h2>${escapeHtml(item.label)}</h2><p class="drawer-reason">${escapeHtml(item.reason)}</p><div class="card-metrics"><span><small>Gösterim</small><strong>${number(item.queryMetrics.impressions)}</strong></span><span><small>Konum</small><strong>${number(item.pageMetrics?.position || item.queryMetrics.position, 1)}</strong></span><span><small>Ürün uyumu</small><strong>${item.productFit}/5</strong></span></div><div class="drawer-section"><h3>Hedef sayfa</h3><span class="query-pill">${escapeHtml(item.targetPath)}</span></div><div class="drawer-section"><h3>Eşleşen sorgular</h3>${item.matchedQueries.map((query) => `<span class="query-pill">${escapeHtml(query)}</span>`).join('')}</div><div class="drawer-section"><h3>Önerilen kontrol listesi</h3><ul class="check-list"><li>Arama niyetini başlık ve giriş bölümünde netleştir</li><li>İç bağlantıları ilgili ders ve ürün akışına bağla</li><li>Örnekleri gerçek kullanıcı problemleriyle genişlet</li><li>Değişiklik sonrası 14–28 gün performansı izle</li></ul></div><div class="approval-box"><strong>İnsan onayı zorunlu</strong><br>SEOAutoPilot öneriyi hazırlar; içerik değişikliğini sen onaylamadan yayınlamaz.</div>`;
   $('#drawerBackdrop').hidden = false;
@@ -625,6 +643,9 @@ $('#refreshWorkflows').addEventListener('click', async () => { await loadWorkflo
 $$('[data-workflow-filter]').forEach((button)=>button.addEventListener('click',()=>{
   state.workflowFilter=button.dataset.workflowFilter;renderWorkflows();
   $('#workflowBoard').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+$$('[data-open-opportunities]').forEach((button)=>button.addEventListener('click',()=>{
+  state.filter='decision';setView('opportunities');renderOpportunities();
 }));
 $('#notificationButton').addEventListener('click',()=>{
   if(!state.project)return;state.workflowFilter='monitoring';setView('workflows');renderWorkflows();

@@ -31,7 +31,7 @@
         </button>
         <button class="nav-item" data-view="workflows">
           <svg viewBox="0 0 24 24"><path d="M9 11l2 2 4-5M5 3h14v18H5V3Z"/><path d="M8 17h8"/></svg>
-          Onay kuyruğu <span class="nav-count approval-count" id="approvalCount">0</span>
+          Uygulama kuyruğu <span class="nav-count approval-count" id="approvalCount">0</span>
         </button>
         <button class="nav-item" data-view="queries">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
@@ -182,17 +182,17 @@
         </section>
 
         <section class="view" id="view-opportunities">
-          <div class="page-heading compact"><div><p class="eyebrow">FIRSAT RADARI</p><h1>Aksiyon kuyruğu</h1><p>Veriye göre sıralanmış, insan onayı bekleyen SEO hamleleri.</p></div></div>
-          <div class="filter-row"><button class="filter active" data-filter="all">Tümü</button><button class="filter" data-filter="UPDATE_EXISTING">Güncelle</button><button class="filter" data-filter="HOLD">Bekle</button><button class="filter" data-filter="NEW_PAGE">Yeni sayfa</button></div>
+          <div class="page-heading compact"><div><p class="eyebrow">KARAR RADARI</p><h1>SEO öncelikleri</h1><p>Yalnız henüz karar vermediğin yeni Search Console sinyalleri burada görünür.</p></div></div>
+          <div class="filter-row"><button class="filter active" data-filter="decision">Karar bekleyen</button><button class="filter" data-filter="CTR_TEST">Başlık/meta</button><button class="filter" data-filter="UPDATE_EXISTING">İçerik güçlendirme</button><button class="filter" data-filter="NEW_PAGE">Yeni sayfa</button><button class="filter" data-filter="HOLD">Veri yetersiz</button></div>
           <div id="opportunityBoard" class="opportunity-board"></div>
         </section>
 
         <section class="view" id="view-workflows">
-          <div class="page-heading compact"><div><p class="eyebrow">KONTROLLÜ OTOMASYON</p><h1>Onay ve uygulama kuyruğu</h1><p>SEO sinyalinden ölçülen sonuca kadar her adımın sahibi ve durumu belli.</p></div><button class="primary-button" id="refreshWorkflows">Akışı yenile</button></div>
+          <div class="page-heading compact"><div><p class="eyebrow">KONTROLLÜ OTOMASYON</p><h1>Uygulama ve izleme kuyruğu</h1><p>Kararını verdiğin işlerin hazırlık, yayın ve ölçüm aşamaları burada görünür.</p></div><button class="primary-button" id="refreshWorkflows">Akışı yenile</button></div>
           <section class="panel" id="bulkPublishPanel"><button type="button" class="primary-button" id="reviewBulkPublish">Tüm uygun önerileri canlıya yayınla</button><p>Bir kez onayla; sistem uygun önerileri sırayla hazırlayıp yayınlasın. Tek tek görevlere girmen gerekmez.</p><div id="bulkPublishContent" aria-live="polite"></div></section>
           <div class="workflow-summary" aria-label="İş akışı filtreleri">
             <button type="button" class="active" data-workflow-filter="actionable"><span class="summary-icon auto">⚡</span><div><small>Senden işlem bekleyen</small><strong id="automatedCount">0</strong></div></button>
-            <button type="button" data-workflow-filter="awaiting"><span class="summary-icon approval">✓</span><div><small>Onay bekleyen</small><strong id="waitingCount">0</strong></div></button>
+            <button type="button" data-open-opportunities><span class="summary-icon approval">✓</span><div><small>Karar radarında</small><strong id="waitingCount">0</strong></div></button>
             <button type="button" data-workflow-filter="ready"><span class="summary-icon execution">→</span><div><small>Uygulamaya hazır</small><strong id="approvedCount">0</strong></div></button>
             <button type="button" data-workflow-filter="monitoring"><span class="summary-icon monitoring">◌</span><div><small>İzlenen</small><strong id="monitoringCount">0</strong></div></button>
           </div>
