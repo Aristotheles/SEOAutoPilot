@@ -74,8 +74,14 @@ test('applies only exact approved HTML fields and reports pending editorial work
   assert.deepEqual(result.pending, ['sections']);
 });
 
-test('invokes Firebase through its Node entry point on Windows', () => {
-  const invocation = firebaseInvocation(['--version']);
+test('invokes an installed Firebase CLI safely and reports a clean missing-tool error', () => {
+  let invocation;
+  try { invocation = firebaseInvocation(['--version']); }
+  catch (error) {
+    assert.equal(process.platform, 'win32');
+    assert.match(error.message, /Firebase CLI Node giriş dosyası bulunamadı/u);
+    return;
+  }
   if (process.platform === 'win32') {
     assert.equal(invocation.command, process.execPath);
     assert.match(invocation.args[0], /firebase-tools[\\/]lib[\\/]bin[\\/]firebase\.js$/u);
