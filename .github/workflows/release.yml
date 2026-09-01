@@ -52,6 +52,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           @'
+          > [!WARNING]
+          > **Unsigned Windows build / İmzasız Windows sürümü:** A code-signing certificate is not yet available. Windows SmartScreen may display a warning on first launch. Download only from this official release, verify the SHA-256 file, and keep the SEOAutoPilot console window open while using the application.
+
           ## Windows
 
           `SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe` dosyasını indirip çalıştır. Tarayıcı otomatik açılır; Node.js kurulumu gerekmez. Bu sürüm kod imzalama sertifikası bulunmadığı için imzasızdır ve Windows SmartScreen ilk açılışta uyarı gösterebilir.

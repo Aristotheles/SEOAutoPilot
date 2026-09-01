@@ -146,12 +146,16 @@ npm start
 
 Windows kullanıcıları `scripts/start-windows.cmd` dosyasını da çalıştırabilir.
 
+> [!WARNING]
+> **Windows EXE henüz kod imzalama sertifikasıyla imzalanmamıştır.** Bu nedenle
+> SmartScreen ilk açılışta “Windows bilgisayarınızı korudu” uyarısı gösterebilir.
+> Dosyayı yalnız [resmî GitHub Releases sayfasından](https://github.com/Aristotheles/SEOAutoPilot/releases/latest)
+> indir ve yayımlanan SHA-256 değerini doğrula. Uygulama çalışırken açılan
+> SEOAutoPilot konsol penceresini kapatma; pencereyi kapatmak yerel uygulamayı durdurur.
+
 Node.js kurmadan kullanmak için [son sürümdeki Windows x64 EXE dosyasını](https://github.com/Aristotheles/SEOAutoPilot/releases/latest)
 indirip çift tıkla. Tarayıcı otomatik açılır; yerel veriler EXE'nin yanındaki `data/`
-klasöründe tutulur. EXE henüz ticari kod imzalama sertifikasıyla imzalanmadığından
-Windows SmartScreen ilk çalıştırmada uyarı gösterebilir. Yayın özellikleri için Git
-ve Firebase CLI ayrıca gerekir. Uygulama çalışırken açılan SEOAutoPilot konsol
-penceresini açık tut; pencereyi kapatmak yerel uygulamayı durdurur.
+klasöründe tutulur. Yayın özellikleri için Git ve Firebase CLI ayrıca gerekir.
 
 Ardından `http://127.0.0.1:4173` adresini aç. Rapor bağlanmamış projeler veri
 bekliyor olarak gösterilir. Sağ üstteki **Veri içe aktar** düğmesiyle Search Console dışa aktarım
