@@ -1,5 +1,17 @@
 # SEOAutoPilot
 
+[![CI](https://github.com/Aristotheles/SEOAutoPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/Aristotheles/SEOAutoPilot/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Aristotheles/SEOAutoPilot/actions/workflows/codeql.yml/badge.svg)](https://github.com/Aristotheles/SEOAutoPilot/actions/workflows/codeql.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+
+SEOAutoPilot, Google Search Console verilerini proje bağlamıyla yorumlayan ve yalnız
+kullanıcı onayından sonra bağlı site deposuna kontrollü SEO değişiklikleri uygulayan
+yerel, açık kaynaklı bir uygulamadır. Türkçe, İngilizce ve Almanca arayüz sunar.
+
+> **Durum:** Aktif MVP (`0.11.x`). Windows üzerinde doğrulanır; Node.js 22+ bulunan
+> macOS/Linux sistemlerinde temel analiz ve arayüz çalışır. Firebase yayın adaptörünün
+> ana test platformu Windows'tur.
+
 Birden fazla site için proje bazlı, insan onaylı Search Console fırsat motoru.
 
 Ürünün kapsamı, güvenlik sınırları ve kapanış ölçütleri için
@@ -20,6 +32,17 @@ Uygulamayı başlat:
 ```powershell
 npm start
 ```
+
+İlk kurulum:
+
+```powershell
+git clone https://github.com/Aristotheles/SEOAutoPilot.git
+cd SEOAutoPilot
+npm run verify
+npm start
+```
+
+Windows kullanıcıları `scripts/start-windows.cmd` dosyasını da çalıştırabilir.
 
 Ardından `http://127.0.0.1:4173` adresini aç. Rapor bağlanmamış projeler veri
 bekliyor olarak gösterilir. Sağ üstteki **Veri içe aktar** düğmesiyle Search Console dışa aktarım
@@ -122,6 +145,9 @@ geri alınmaz.
 - Node.js 22 veya üzeri
 
 Harici paket gerektirmez.
+
+Git/Firebase üzerinden yayın yapacaksan ayrıca Git ve Firebase CLI gerekir. Yalnız analiz,
+CSV içe aktarma ve Search Console API kullanımı için Firebase CLI gerekmez.
 
 Yeni kurulum boş bir proje listesiyle açılır; LingoDecoder veya başka bir marka
 otomatik eklenmez. Her site kullanıcı tarafından oluşturulur. Eski kurulumdan
@@ -269,3 +295,19 @@ gördüğünü doğruladığı iddia edilmez.
    kaynak değişiklikleri ve canlı yayın için ayrı kullanıcı onayı.
 4. Yayın sonrası gerçek verilerle etki takibi; mevcut LingoDecoder içerik
    iyileştirme kuyruğunu koruma.
+
+## Güvenlik ve katkı
+
+- Güvenlik modeli ve özel bildirim süreci: [`docs/SECURITY.md`](docs/SECURITY.md)
+- Katkı rehberi: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Destek sınırları: [`SUPPORT.md`](SUPPORT.md)
+- Davranış kuralları: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+
+Güvenlik açığını herkese açık issue olarak paylaşma. Hassas bilgi içermeyen hatalar ve
+özellik önerileri için GitHub issue şablonlarını kullan.
+
+## Lisans
+
+SEOAutoPilot, [GNU Affero General Public License v3.0](LICENSE) ile yayımlanır.
+Değiştirilmiş bir sürümü ağ üzerinden kullanıcıların hizmetine sunarsan ilgili kaynak
+kodunu da AGPL-3.0 koşullarıyla erişilebilir kılman gerekir.

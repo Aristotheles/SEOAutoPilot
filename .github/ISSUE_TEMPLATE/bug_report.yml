@@ -1,0 +1,41 @@
+name: Bug report
+description: Tekrarlanabilir bir hatayı bildirin
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Gizli anahtar, token, Search Console verisi veya kişisel klasör yolu eklemeyin."
+  - type: input
+    id: version
+    attributes:
+      label: SEOAutoPilot sürümü
+      placeholder: "0.11.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: İşletim sistemi
+      options: ["Windows 11", "Windows 10", "macOS", "Linux", "Diğer"]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Yeniden üretme adımları
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Beklenen ve gerçekleşen sonuç
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Gizlilik kontrolü
+      options:
+        - label: Bildirimde gizli bilgi ve kişisel veri bulunmadığını kontrol ettim.
+          required: true

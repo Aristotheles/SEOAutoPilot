@@ -1,0 +1,22 @@
+name: Feature request
+description: Yeni bir özellik veya iyileştirme önerin
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Çözülecek problem
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Önerilen çözüm
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: İnsan onayı ve güvenlik etkisi
+      description: Özellik hangi veriye veya site değişikliğine erişecek?

@@ -1,5 +1,22 @@
 # Güvenlik modeli
 
+## Desteklenen sürümler
+
+| Sürüm | Destek |
+| --- | --- |
+| En son `0.11.x` | Güvenlik güncellemeleri alır |
+| Daha eski sürümler | Desteklenmez; önce güncelleyin |
+
+## Güvenlik açığı bildirme
+
+Güvenlik açıklarını herkese açık issue olarak paylaşmayın. GitHub deposundaki
+**Security → Report a vulnerability** bağlantısından özel güvenlik bildirimi gönderin.
+Bildirimde etkilenen sürümü, yeniden üretim adımlarını ve olası etkiyi belirtin; gerçek
+OAuth anahtarı, token, müşteri Search Console verisi veya kişisel klasör yolu eklemeyin.
+
+İlk değerlendirme hedefi 7 gün, kritik açıklar için düzeltme hedefi doğrulama sonrasında
+14 gündür. Bu süreler bir hizmet seviyesi garantisi değildir.
+
 SEOAutoPilot tek operatörlü, yerel bir uygulamadır ve yalnız `127.0.0.1` üzerinde çalışır.
 Yerel API her açılışta yenilenen HttpOnly oturum çerezi, kesin Host kontrolü ve aynı-origin
 değişiklik kontrolü kullanır. Uygulama internet üzerinde sunucu olarak yayınlanmamalıdır.

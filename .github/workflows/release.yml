@@ -1,0 +1,46 @@
+name: Release portable package
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: npm run verify
+      - run: npm run smoke
+      - name: Build portable archive and checksum
+        shell: pwsh
+        run: |
+          $name = "SEOAutoPilot-${{ github.ref_name }}-portable"
+          git archive --format=zip --output "$name.zip" HEAD
+          $hash = (Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name.zip" | Set-Content "$name.sha256" -Encoding ascii
+      - name: Attest portable archive
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: "SEOAutoPilot-${{ github.ref_name }}-portable.zip"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: SEOAutoPilot-${{ github.ref_name }}-portable
+          path: |
+            SEOAutoPilot-${{ github.ref_name }}-portable.zip
+            SEOAutoPilot-${{ github.ref_name }}-portable.sha256
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" --verify-tag --generate-notes `
+            "SEOAutoPilot-${{ github.ref_name }}-portable.zip" `
+            "SEOAutoPilot-${{ github.ref_name }}-portable.sha256"
