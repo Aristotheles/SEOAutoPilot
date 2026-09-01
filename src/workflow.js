@@ -263,15 +263,25 @@ function beginPublish(workflow, now = new Date().toISOString()) {
     events: addEvent(workflow, 'PUBLISHING', 'İkinci onay alındı; canlı yayın başladı', now)};
 }
 
-function finishPublish(workflow, output, now = new Date().toISOString()) {
+function reportPeriod(report) {
+  const dates=(report?.details?.series||[]).map(row=>String(row.date||'')).filter(Boolean).sort();
+  return dates.length?{start:dates[0],end:dates.at(-1),days:dates.length}:null;
+}
+
+function finishPublish(workflow, output, now = new Date().toISOString(), report = null) {
   if (workflow.status !== STATUS.publishing) {
     throw new Error('Canlı yayın aşamasında bir görev bulunmuyor.');
   }
-  return {...workflow, status: STATUS.published, updatedAt: now,
+  const baseline=pageMetricsForWorkflow(report,workflow)||{
+    clicks:0,impressions:Number(workflow.brief?.evidence?.impressions||0),ctr:0,
+    position:Number(workflow.brief?.evidence?.position||0)};
+  baseline.period=reportPeriod(report); baseline.capturedAt=now;
+  const publishedEvents=addEvent(workflow,'PUBLISHED','Değişiklik canlı siteye yayınlandı',now,'system');
+  return {...workflow, status: STATUS.monitoring, updatedAt: now,
     execution: {...workflow.execution, ...output, state: 'published', appliedAt: now,
       url: output.url},
-    events: addEvent(workflow, 'PUBLISHED', 'Değişiklik canlı siteye yayınlandı', now,
-        'system')};
+    monitoringStartedAt:now,monitoringBaseline:baseline,monitoringBaselineAt:now,
+    events:[...publishedEvents,{type:'MONITORING',label:'Yayın anı baz çizgisi kaydedildi; 14/28 günlük izleme başladı',at:now,actor:'system'}]};
 }
 
 function failExecution(workflow, error, now = new Date().toISOString()) {
@@ -299,24 +309,40 @@ function monitoringResult(baseline, current) {
   return {status:'review_ready',verdict,recommendation,baseline,current,changes};
 }
 
+function dateReached(startIso, periodEnd, days) {
+  if(!periodEnd)return false;
+  const target=new Date(startIso);target.setUTCDate(target.getUTCDate()+days);
+  return new Date(`${periodEnd}T23:59:59.999Z`).getTime()>=target.getTime();
+}
+
 function completeMatureMonitoring(workflows, now = new Date().toISOString(), report = null) {
   const nowMs = new Date(now).getTime();
   return (workflows || []).map((workflow) => {
     if (workflow.status !== STATUS.monitoring || !workflow.monitoringStartedAt) return workflow;
     const current=pageMetricsForWorkflow(report,workflow);
+    const period=reportPeriod(report);
     const baseline=workflow.monitoringBaseline||current||{
       clicks:0,impressions:Number(workflow.brief?.evidence?.impressions||0),ctr:0,
       position:Number(workflow.brief?.evidence?.position||0)};
     if(!workflow.monitoringBaseline)return {...workflow,monitoringBaseline:baseline,
       monitoringBaselineAt:report?.generatedAt||now};
     const elapsed = nowMs - new Date(workflow.monitoringStartedAt).getTime();
-    if (elapsed < 28 * 24 * 60 * 60 * 1000) return workflow;
-    const result=current?monitoringResult(baseline,current):{status:'review_ready',verdict:'no_current_data',
+    let interim=workflow.monitoringInterim||null;
+    if(!interim&&elapsed>=14*24*60*60*1000&&dateReached(workflow.monitoringStartedAt,period?.end,14)) {
+      interim=current?{...monitoringResult(baseline,{...current,period}),status:'interim',checkedAt:now}:
+        {status:'interim',verdict:'no_current_data',recommendation:'14 günlük veri geldi ancak hedef sayfa için ölçüm yok.',checkedAt:now};
+    }
+    if (elapsed < 28 * 24 * 60 * 60 * 1000 || !dateReached(workflow.monitoringStartedAt,period?.end,28)) {
+      return interim===workflow.monitoringInterim?workflow:{...workflow,monitoringInterim:interim,
+        events:addEvent(workflow,'MONITORING_14','14 günlük ara kontrol hazırlandı',now,'system')};
+    }
+    const measured=current?{...current,period}:null;
+    const result=measured?monitoringResult(baseline,measured):{status:'review_ready',verdict:'no_current_data',
       recommendation:'Güncel Search Console verisi bulunamadı. Veriyi yenileyip sonucu tekrar incele.',baseline,current:null,changes:null};
-    return transition(workflow, 'complete', {now,result});
+    return transition({...workflow,monitoringInterim:interim}, 'complete', {now,result});
   });
 }
 
-module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, completeMatureMonitoring, failExecution, monitoringResult, pageMetricsForWorkflow,
+module.exports = {STATUS, beginExecution, beginPublish, briefFor, changesFor, completeMatureMonitoring, failExecution, monitoringResult, pageMetricsForWorkflow, reportPeriod,
   finishExecution, finishPublish, priorityFor, recoverPreview, stepsFor, syncWorkflows,
   transition};

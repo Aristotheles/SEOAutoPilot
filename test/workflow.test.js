@@ -53,10 +53,10 @@ test('monitoring completes automatically after 28 days but not before', () => {
   const workflow = {...syncWorkflows('project-1', {opportunities:[opportunity]})[0],
     status:STATUS.monitoring, monitoringStartedAt:'2026-08-01T00:00:00.000Z',
     execution:{appliedAt:'2026-08-01T00:00:00.000Z'}};
-  const report={generatedAt:'2026-08-01T00:00:00.000Z',details:{pages:[{url:'https://example.com/growth-guide',clicks:10,impressions:100,ctr:.1,position:12}]}};
+  const report={generatedAt:'2026-08-01T00:00:00.000Z',details:{series:[{date:'2026-07-05'},{date:'2026-08-01'}],pages:[{url:'https://example.com/growth-guide',clicks:10,impressions:100,ctr:.1,position:12}]}};
   const tracked=completeMatureMonitoring([workflow], '2026-08-02T00:00:00.000Z',report)[0];
   assert.equal(completeMatureMonitoring([tracked], '2026-08-28T23:59:59.000Z',report)[0].status, STATUS.monitoring);
-  const current={details:{pages:[{url:'https://example.com/growth-guide',clicks:15,impressions:130,ctr:.115,position:9}]}};
+  const current={details:{series:[{date:'2026-08-02'},{date:'2026-08-29'}],pages:[{url:'https://example.com/growth-guide',clicks:15,impressions:130,ctr:.115,position:9}]}};
   const completed=completeMatureMonitoring([tracked], '2026-08-29T00:00:00.000Z',current)[0];
   assert.equal(completed.status, STATUS.completed);
   assert.equal(completed.result.verdict,'improved');
@@ -76,10 +76,10 @@ test('does not allow skipping required workflow stages', () => {
   assert.equal(preview.status, STATUS.previewReady);
   assert.throws(() => transition(preview, 'start_monitoring'));
   const publishing = beginPublish(preview, '2026-08-01T09:01:30.000Z');
-  const published = finishPublish(publishing, {url: 'https://example.com/growth-guide'},
-      '2026-08-01T09:02:00.000Z');
-  const monitoring = transition(published, 'start_monitoring',
-      {now: '2026-08-01T09:02:00.000Z'});
+  const monitoring = finishPublish(publishing, {url: 'https://example.com/growth-guide'},
+      '2026-08-01T09:02:00.000Z', {details:{series:[{date:'2026-07-05'},{date:'2026-08-01'}],pages:[{url:'https://example.com/growth-guide',clicks:2,impressions:40,ctr:.05,position:14}]}});
+  assert.equal(monitoring.status,STATUS.monitoring);
+  assert.equal(monitoring.monitoringBaseline.impressions,40);
   assert.throws(() => transition(monitoring, 'complete',
       {now: '2026-08-02T09:02:00.000Z'}), /14 günlük/u);
   assert.equal(transition(monitoring, 'complete',

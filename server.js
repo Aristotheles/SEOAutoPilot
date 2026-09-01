@@ -17,7 +17,8 @@ const {inspectSite,profileFromInspection} = require('./src/site-inspection');
 const inspections = new Map();
 const deployment = require('./src/deployment');
 const {enrichWorkflowSources} = require('./src/source-verification');
-const bulkPublisher=bulkModule.createBulkPublisher(require('./src/project-store'),deployment);
+const bulkPublisher=bulkModule.createBulkPublisher(require('./src/project-store'),deployment,
+    project=>projectReport(project).report);
 bulkPublisher.recover();
 const {mergeEditorialBacklog} = require('./src/seo-backlog');
 const {beginExecution, beginPublish, failExecution, finishExecution, finishPublish,
@@ -115,7 +116,9 @@ function runPublishJob(projectId, workflowId) {
       const workflow = project.workflows.find((item) => item.id === workflowId);
       const output = await deployment.publishPreview(workflow, project.deployment,
           project.siteUrl);
-      updateWorkflow(projectId, workflowId, (current) => finishPublish(current, output));
+      const report=projectReport(getPrivateProject(projectId)).report;
+      updateWorkflow(projectId, workflowId, (current) => finishPublish(current, output,
+          new Date().toISOString(),report));
     } catch (error) {
       try { updateWorkflow(projectId, workflowId, (current) => failExecution(current, error.message)); }
       catch (_) { /* project may have been removed while the job ran */ }

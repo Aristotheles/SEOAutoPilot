@@ -26,7 +26,7 @@ function plan(project){
   const token=crypto.createHash('sha256').update(JSON.stringify({site:project.siteUrl,profile:project.profile,connection:project.deployment,items})).digest('hex');
   return {token,items,skipped,notReady};
 }
-function createBulkPublisher(store,deployment){
+function createBulkPublisher(store,deployment,reportForProject){
   let running=false;
   const isBusy=()=>running;
   function save(id,job,workflow){const p=store.getPrivateProject(id);store.updateProject(id,{bulkPublish:job,...(workflow?{workflows:p.workflows.map(w=>w.id===workflow.id?workflow:w)}:{})});}
@@ -48,7 +48,8 @@ function createBulkPublisher(store,deployment){
         w=finishExecution(w,prepared);save(id,job,w);
         w=beginPublish(w);item.status='publishing';save(id,job,w);
         const published=await deployment.publishPreview(w,p.deployment,p.siteUrl);
-        w=finishPublish(w,published);item.status='published';item.url=published.url;item.finishedAt=new Date().toISOString();save(id,job,w);
+        const now=new Date().toISOString();
+        w=finishPublish(w,published,now,reportForProject?.(p)||p.lastSyncReport||null);item.status='published';item.url=published.url;item.finishedAt=now;save(id,job,w);
       }
       job.status='completed';
     }catch(error){
