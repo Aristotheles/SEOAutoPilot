@@ -1,12 +1,16 @@
 'use strict';
 
 function firebaseEnvironment(source = process.env) {
-  const env = {...source};
-  // Explicit per-command accounts must not be overridden by ambient credentials.
-  for (const key of Object.keys(env)) {
-    if (['FIREBASE_TOKEN', 'GOOGLE_APPLICATION_CREDENTIALS', 'CLOUDSDK_AUTH_ACCESS_TOKEN'].includes(key.toUpperCase())) delete env[key];
-  }
+  const allowed = ['PATH', 'PATHEXT', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP',
+    'APPDATA', 'LOCALAPPDATA', 'USERPROFILE', 'HOME', 'HOMEDRIVE', 'HOMEPATH', 'LANG', 'LC_ALL'];
+  const env = Object.fromEntries(allowed.filter((key) => source[key] != null)
+      .map((key) => [key, source[key]]));
   return env;
+}
+
+function buildEnvironment(source = process.env) {
+  return {...firebaseEnvironment(source), CI: 'true', NODE_ENV: 'production',
+    NPM_CONFIG_AUDIT: 'false', NPM_CONFIG_FUND: 'false', NPM_CONFIG_IGNORE_SCRIPTS: 'true'};
 }
 
 async function resolveFirebaseAccount(connection, runJson) {
@@ -35,4 +39,4 @@ async function resolveFirebaseAccount(connection, runJson) {
   return fail(`${connection.firebaseProject} / ${connection.firebaseSite || connection.firebaseProject} için kayıtlı hesaplarla Hosting erişimi doğrulanamadı. Hesap iznini, site kimliğini ve internet bağlantısını kontrol et; eksik hesabı firebase login:add eposta ile ekle.`, accounts);
 }
 
-module.exports = {firebaseEnvironment, resolveFirebaseAccount};
+module.exports = {buildEnvironment, firebaseEnvironment, resolveFirebaseAccount};

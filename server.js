@@ -4,11 +4,14 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const {URL} = require('node:url');
+const crypto = require('node:crypto');
+const {auditSecurity, sanitizeError, securityHeaders} = require('./src/security');
 const {loadExport} = require('./src/importer');
 const {analyzeExport} = require('./src/engine');
 const {normalizeReport} = require('./src/page-label');
-const {createProject, getPrivateProject, listProjects, updateProject, saveProfile} =
+const {createProject, getPrivateProject, listProjects, protectStoredSecrets, updateProject, saveProfile} =
   require('./src/project-store');
+protectStoredSecrets();
 const google = require('./src/google-search-console');
 const {analysisOptions, reanalyzeReport, assertProfileWorkflow} = require('./src/profile-analysis');
 const connections = require('./src/connection-management');
@@ -27,25 +30,54 @@ const {beginExecution, beginPublish, failExecution, finishExecution, finishPubli
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.PORT || 4173);
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const DATA_DIR = process.env.SEO_AUTOPILOT_DATA_DIR ? path.resolve(process.env.SEO_AUTOPILOT_DATA_DIR) :
+  path.join(__dirname, 'data');
 const MIME = Object.freeze({'.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8'});
+const SESSION_TOKEN = crypto.randomBytes(32).toString('base64url');
+const SESSION_COOKIE = `seoautopilot_session=${SESSION_TOKEN}; HttpOnly; SameSite=Lax; Path=/`;
+const requestWindows = new Map();
+
+function responseHeaders(extra = {}) { return {...securityHeaders(), ...extra}; }
+function activePort() { return server?.listening ? server.address().port : PORT; }
+function localOrigin() { return `http://${HOST}:${activePort()}`; }
+function validHost(request) { return request.headers.host === `${HOST}:${activePort()}`; }
+function authenticated(request) {
+  return String(request.headers.cookie || '').split(/;\s*/u)
+      .some((cookie) => cookie === `seoautopilot_session=${SESSION_TOKEN}`);
+}
+function rateAllowed(request) {
+  const key = request.socket.remoteAddress || 'local'; const now = Date.now();
+  const current = requestWindows.get(key);
+  if (!current || now - current.startedAt > 60_000) {
+    requestWindows.set(key, {startedAt: now, count: 1}); return true;
+  }
+  current.count += 1; return current.count <= 600;
+}
 
 function json(response, status, body) {
-  response.writeHead(status, {'Content-Type': MIME['.json'], 'Cache-Control': 'no-store'});
-  response.end(JSON.stringify(body));
+  const safeBody = body?.error ? {...body, error: sanitizeError(body.error)} : body;
+  response.writeHead(status, responseHeaders({'Content-Type': MIME['.json'], 'Cache-Control': 'no-store'}));
+  response.end(JSON.stringify(safeBody));
 }
 function readBody(request) {
   return new Promise((resolve, reject) => {
-    let body = '';
-    request.on('data', (chunk) => { body += chunk; if (body.length > 64_000) reject(new Error('İstek çok büyük.')); });
+    let body = ''; let settled = false;
+    request.on('data', (chunk) => {
+      if (settled) return;
+      body += chunk;
+      if (Buffer.byteLength(body, 'utf8') > 64_000) {
+        settled = true; reject(new Error('İstek çok büyük.')); request.destroy();
+      }
+    });
     request.on('end', () => { if(bulkPublisher.isBusy()){reject(new Error('Toplu yayın sürüyor; değişiklik isteği durduruldu.'));return;} try { resolve(JSON.parse(body || '{}')); } catch (_) { reject(new Error('Geçersiz JSON.')); } });
     request.on('error', reject);
   });
 }
 function trustedLocalOrigin(request) {
   const origin = request.headers.origin;
-  return !origin || origin === `http://${HOST}:${PORT}`;
+  return origin === localOrigin();
 }
 function dateValue(date) { return date.toISOString().slice(0, 10); }
 function emptyReport(project) {
@@ -78,8 +110,8 @@ function serveStatic(requestUrl, response) {
   if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     return json(response, 404, {error: 'Dosya bulunamadı.'});
   }
-  response.writeHead(200, {'Content-Type': MIME[path.extname(filePath)] || 'application/octet-stream',
-    'Cache-Control': 'no-cache'});
+  response.writeHead(200, responseHeaders({'Content-Type': MIME[path.extname(filePath)] || 'application/octet-stream',
+    'Cache-Control': 'no-cache', 'Set-Cookie': SESSION_COOKIE}));
   fs.createReadStream(filePath).pipe(response);
 }
 function projectIdFrom(pathname, suffix) {
@@ -175,7 +207,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.10.2'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.11.0'}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;
@@ -217,7 +249,12 @@ async function routeApi(request, response, requestUrl) {
     try {
       const project = getPrivateProject(deploymentId);
       if (!project) throw new Error('Proje bulunamadı.');
-      const connection = deployment.detectConnection((await readBody(request)).repositoryPath);
+      const deploymentInput = await readBody(request);
+      if (deploymentInput.trustRepositoryCode !== true) {
+        throw new Error('Bağlı projenin derleme kodunu çalıştırmak için güven onayı gerekli.');
+      }
+      const connection = {...deployment.detectConnection(deploymentInput.repositoryPath),
+        codeExecutionTrustedAt: new Date().toISOString()};
       if (connection.provider !== 'firebase_hosting') {
         throw new Error('Bu MVP şu anda yalnızca Firebase Hosting projelerini yayınlayabilir.');
       }
@@ -347,7 +384,7 @@ async function routeApi(request, response, requestUrl) {
     try {
       if (!getPrivateProject(connectId)) json(response, 404, {error: 'Proje bulunamadı.'});
       else json(response, 200, {url: google.createAuthorizationUrl(connectId,
-        `http://${HOST}:${PORT}/oauth/google/callback`)});
+        `${localOrigin()}/oauth/google/callback`)});
     } catch (error) { json(response, 400, {error: error.message}); }
     return true;
   }
@@ -407,21 +444,34 @@ async function oauthCallback(response, requestUrl) {
       refreshToken: token.refresh_token || project.oauth?.refreshToken,
       expiresAt: Date.now() + token.expires_in * 1000, scope: token.scope},
     searchConsoleProperty: selectedProperty});
-    response.writeHead(302, {Location: `/?oauth=success&project=${encodeURIComponent(project.id)}`});
+    response.writeHead(302, responseHeaders({Location: `/?oauth=success&project=${encodeURIComponent(project.id)}`}));
   } catch (error) {
-    response.writeHead(302, {Location: `/?oauth=error&message=${encodeURIComponent(error.message)}`});
+    response.writeHead(302, responseHeaders({Location: `/?oauth=error&message=${encodeURIComponent(sanitizeError(error))}`}));
   }
   response.end();
 }
 
 const server = http.createServer(async (request, response) => {
+  if (!validHost(request)) {
+    auditSecurity(DATA_DIR, 'INVALID_HOST', request.headers.host);
+    json(response, 421, {error: 'Geçersiz yerel uygulama adresi.'}); return;
+  }
   const requestUrl = new URL(request.url, `http://${HOST}:${PORT}`);
   try {
     if (request.method === 'GET' && requestUrl.pathname === '/oauth/google/callback') {
       return oauthCallback(response, requestUrl);
     }
     if (requestUrl.pathname.startsWith('/api/')) {
+      if (!rateAllowed(request)) {
+        auditSecurity(DATA_DIR, 'RATE_LIMIT', request.socket.remoteAddress);
+        json(response, 429, {error: 'Çok fazla yerel istek gönderildi. Kısa süre sonra tekrar dene.'}); return;
+      }
+      if (!authenticated(request)) {
+        auditSecurity(DATA_DIR, 'INVALID_SESSION', requestUrl.pathname);
+        json(response, 401, {error: 'Yerel uygulama oturumu geçersiz. Sayfayı yenile.'}); return;
+      }
       if (request.method !== 'GET' && !trustedLocalOrigin(request)) {
+        auditSecurity(DATA_DIR, 'INVALID_ORIGIN', request.headers.origin || 'missing');
         json(response, 403, {error: 'Yerel uygulama dışından gelen değişiklik isteği engellendi.'});
         return;
       }
@@ -432,5 +482,10 @@ const server = http.createServer(async (request, response) => {
     json(response, 405, {error: 'Bu yöntem desteklenmiyor.'});
   } catch (error) { json(response, 500, {error: error.message}); }
 });
+
+server.headersTimeout = 10_000;
+server.requestTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
+server.maxRequestsPerSocket = 1000;
 
 server.listen(PORT, HOST, () => console.log(`SEOAutoPilot hazır: http://${HOST}:${server.address().port}`));

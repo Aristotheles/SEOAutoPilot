@@ -124,8 +124,10 @@ test('profile API enforces origin, revision, language validation and project iso
       server.stdout.on('data',chunk=>{const match=String(chunk).match(/http:\/\/127\.0\.0\.1:\d+/);if(match){clearTimeout(timer);resolve(match[0]);}});
       server.once('error',error=>{clearTimeout(timer);reject(error);});
     });
+    const cookie=(await fetch(base+'/')).headers.get('set-cookie').split(';')[0];
     async function request(route,method='GET',body,origin) {
-      const response=await fetch(base+route,{method,headers:{'Content-Type':'application/json',...(origin?{Origin:origin}:{})},body:body===undefined?undefined:JSON.stringify(body)});
+      const response=await fetch(base+route,{method,headers:{'Content-Type':'application/json',Cookie:cookie,
+        ...(method!=='GET'?{Origin:origin||base}:{})},body:body===undefined?undefined:JSON.stringify(body)});
       return {status:response.status,body:await response.json()};
     }
     const other=(await request('/api/projects','POST',{name:'Independent',siteUrl:'https://independent.example'})).body.project;

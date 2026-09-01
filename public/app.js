@@ -617,6 +617,7 @@ function openDeploymentModal() {
   $('#repositoryPathInput').value = state.deploymentStatus?.connection?.repositoryPath ||
     state.project?.deployment?.repositoryPath || '';
   $('#deploymentError').textContent = state.deploymentStatus?.error || state.deploymentStatus?.publicationWarning || '';
+  $('#trustRepositoryCode').checked = Boolean(state.deploymentStatus?.connection?.codeExecutionTrustedAt);
   $('#deploymentModal').hidden = false;
 }
 async function saveDeployment() {
@@ -626,7 +627,8 @@ async function saveDeployment() {
   try {
     const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/deployment`,
         {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
-          repositoryPath: $('#repositoryPathInput').value})});
+          repositoryPath: $('#repositoryPathInput').value,
+          trustRepositoryCode: $('#trustRepositoryCode').checked})});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
     if (state.project?.id !== projectId) return;
     state.deploymentStatus = payload.deployment;

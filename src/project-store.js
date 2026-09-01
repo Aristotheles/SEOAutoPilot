@@ -6,12 +6,13 @@ const crypto = require('node:crypto');
 const {publicConnection} = require('./deployment');
 const {defaultProfile, normalizeProfile} = require('./site-profile');
 const {LINGO_BACKLOG} = require('./seo-backlog');
+const {decrypt, encrypt, secureWriteFile} = require('./security');
 
 const DATA_DIR = process.env.SEO_AUTOPILOT_DATA_DIR ?
   path.resolve(process.env.SEO_AUTOPILOT_DATA_DIR) : path.join(__dirname, '..', 'data');
 const STATE_FILE = path.join(DATA_DIR, 'projects.json');
 const LOCK_FILE = path.join(DATA_DIR, 'projects.lock');
-const LOCK_TIMEOUT_MS = 5000;
+const LOCK_TIMEOUT_MS = 30000;
 function migrateProject(project) {
   if (project.profile) return project;
   const profile = defaultProfile(project);
@@ -24,6 +25,20 @@ function migrateProject(project) {
   return {...project, profile};
 }
 function initialState() { return {schemaVersion: 2, projects: []}; }
+function protectProject(project) {
+  if (!project.oauth) return project;
+  const oauth = {...project.oauth};
+  if (Object.hasOwn(oauth, 'accessToken')) oauth.accessToken = encrypt(oauth.accessToken, DATA_DIR);
+  if (Object.hasOwn(oauth, 'refreshToken')) oauth.refreshToken = encrypt(oauth.refreshToken, DATA_DIR);
+  return {...project, oauth};
+}
+function revealProject(project) {
+  if (!project.oauth) return project;
+  const oauth = {...project.oauth};
+  if (Object.hasOwn(oauth, 'accessToken')) oauth.accessToken = decrypt(oauth.accessToken, DATA_DIR);
+  if (Object.hasOwn(oauth, 'refreshToken')) oauth.refreshToken = decrypt(oauth.refreshToken, DATA_DIR);
+  return {...project, oauth};
+}
 function readState() {
   if (!fs.existsSync(STATE_FILE)) return initialState();
   let value;
@@ -43,14 +58,11 @@ function readState() {
     return migrated;
   }
   if (value.projects.some(p=>!p.profile || p.profile.version !== 1 || !Array.isArray(p.profile.languages))) throw new Error('Site profili veri şeması geçersiz; dosya korunuyor.');
-  return value;
+  return {...value, projects: value.projects.map(revealProject)};
 }
 function writeState(state) {
-  fs.mkdirSync(DATA_DIR, {recursive: true});
-  const temporary = `${STATE_FILE}.${process.pid}.tmp`;
-  fs.writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`,
-      {encoding: 'utf8', mode: 0o600});
-  fs.renameSync(temporary, STATE_FILE);
+  const protectedState = {...state, projects: state.projects.map(protectProject)};
+  secureWriteFile(STATE_FILE, `${JSON.stringify(protectedState, null, 2)}\n`);
 }
 function withStateLock(operation) {
   fs.mkdirSync(DATA_DIR, {recursive:true});
@@ -133,6 +145,10 @@ function saveProfile(id, input, expectedRevision) {
   });
 }
 function getPrivateProject(id) { return getProject(id, {includeSecrets: true}); }
+function protectStoredSecrets() {
+  if (!fs.existsSync(STATE_FILE)) return;
+  withStateLock(() => writeState(readState()));
+}
 
 function assertProjectIdle(project) {
   if (!project) throw new Error('Proje bulunamadı.');
@@ -149,4 +165,5 @@ function clearAllOAuth() {
 }
 
 module.exports = {assertProjectIdle, clearAllOAuth, createProject, getPrivateProject,
-  getProject, listProjects, publicProject, removeProject, updateProject, saveProfile};
+  getProject, listProjects, protectStoredSecrets, publicProject, removeProject, updateProject,
+  saveProfile};

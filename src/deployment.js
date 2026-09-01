@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const {execFile} = require('node:child_process');
-const {firebaseEnvironment, resolveFirebaseAccount} = require('./firebase-access');
+const {buildEnvironment, firebaseEnvironment, resolveFirebaseAccount} = require('./firebase-access');
+const {sanitizeError} = require('./security');
 
 function firebaseInvocation(args) {
   if (process.platform !== 'win32') return {command: 'firebase', args};
@@ -149,14 +150,14 @@ async function inspectFirebaseConnection(connection, runner) {
     publicationWarning: access.error || checked.publicationWarning};
 }
 
-function runAsync(command, args, cwd, timeout = 20 * 60_000) {
+function runAsync(command, args, cwd, timeout = 20 * 60_000, environment = buildEnvironment()) {
   return new Promise((resolve, reject) => {
-    execFile(command, args, {cwd, encoding: 'utf8', timeout, windowsHide: true, env: firebaseEnvironment(),
+    execFile(command, args, {cwd, encoding: 'utf8', timeout, windowsHide: true, env: environment,
       maxBuffer: 20 * 1024 * 1024}, (error, stdout, stderr) => {
       if (error) {
         const detail = String(stderr || stdout || error.message).trim().split(/\r?\n/u)
             .slice(-8).join('\n');
-        reject(new Error(detail || `${command} çalıştırılamadı.`)); return;
+        reject(new Error(sanitizeError(detail, `${path.basename(command)} çalıştırılamadı.`))); return;
       }
       resolve(String(stdout || '').trim());
     });
@@ -289,7 +290,7 @@ async function buildProject(root, account) {
   } else if (layout.releaseBuilder === 'vite_release') {
     if (!fs.existsSync(path.join(root, 'package-lock.json'))) throw new Error('Güvenli Vite derlemesi için package-lock.json gerekli.');
     // Install inside the isolated worktree, never copy the source site's node_modules or secrets.
-    const install = npmInvocation(['ci', '--no-audit', '--no-fund']);
+    const install = npmInvocation(['ci', '--ignore-scripts', '--no-audit', '--no-fund']);
     await runAsync(install.command, install.args, root);
     const build = npmInvocation(['run', 'build']);
     await runAsync(build.command, build.args, root);
@@ -319,6 +320,9 @@ function deploymentRoot() {
 }
 
 async function preparePreview(workflow, connection) {
+  if (!connection?.codeExecutionTrustedAt) {
+    throw new Error('Bu kaynak deposunda derleme kodu çalıştırmak için açık güven onayı gerekli. Bağlantıyı yeniden doğrula.');
+  }
   const checked = await inspectFirebaseConnection(connection);
   if (!checked.connected || connection.provider !== 'firebase_hosting') {
     throw new Error(checked.error || 'Firebase Hosting bağlantısı hazır değil.');
@@ -343,9 +347,6 @@ async function preparePreview(workflow, connection) {
     await runAsync('git', ['-c', 'user.name=SEOAutoPilot',
       '-c', 'user.email=seoautopilot@localhost', 'commit', '-m',
       `seo: ${workflow.title}`], worktreePath, 60_000);
-    if (fs.existsSync(path.join(worktreePath, 'tool', 'verify_seo.mjs'))) {
-      await runAsync('node', ['tool/verify_seo.mjs'], worktreePath, 120_000);
-    }
     await buildProject(worktreePath, account);
     verifyBuiltPage(worktreePath, patch.sourceFile);
     const revision = await runAsync('git', ['rev-parse', 'HEAD'], worktreePath, 30_000);

@@ -52,8 +52,10 @@ test('removal endpoints require confirmation, isolate projects, preserve files a
       server.stdout.on('data', chunk => {const match = String(chunk).match(/http:\/\/127\.0\.0\.1:\d+/); if(match){clearTimeout(timeout);resolve(match[0]);}});
       server.once('error', error => {clearTimeout(timeout);reject(error);});
     });
+    const cookie = (await fetch(base + '/')).headers.get('set-cookie').split(';')[0];
     async function request(url, method = 'GET', body, origin) {
-      const response = await fetch(base + url, {method, headers: {'Content-Type': 'application/json', ...(origin ? {Origin: origin} : {})}, body: body === undefined ? undefined : JSON.stringify(body)});
+      const response = await fetch(base + url, {method, headers: {'Content-Type': 'application/json', Cookie: cookie,
+        ...(method !== 'GET' ? {Origin: origin || base} : {})}, body: body === undefined ? undefined : JSON.stringify(body)});
       return {status: response.status, body: await response.json()};
     }
     const created = await request('/api/projects', 'POST', {name: 'Wrong Site', siteUrl: 'https://wrong.example'});

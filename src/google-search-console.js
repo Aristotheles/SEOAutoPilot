@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const {decrypt, encrypt, restrictFile, secureWriteFile} = require('./security');
 
 const SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -11,6 +12,7 @@ const API_ROOT = 'https://www.googleapis.com/webmasters/v3';
 const CONFIG_FILE = path.join(process.env.SEO_AUTOPILOT_DATA_DIR ?
   path.resolve(process.env.SEO_AUTOPILOT_DATA_DIR) : path.join(__dirname, '..', 'data'),
   'google-oauth.json');
+const DATA_DIR = path.dirname(CONFIG_FILE);
 const pendingStates = new Map();
 let configGeneration = 0;
 const projectGenerations = new Map();
@@ -32,7 +34,19 @@ function assertGeneration(projectId, generation) {
 function readConfig() {
   let fileConfig = {};
   if (fs.existsSync(CONFIG_FILE)) {
-    try { fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (_) { fileConfig = {}; }
+    try {
+      restrictFile(CONFIG_FILE);
+      fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      const needsProtection = !fileConfig.disabled && [fileConfig.clientId, fileConfig.clientSecret]
+          .some((value) => value && !String(value).startsWith('enc:v1:'));
+      if (needsProtection) {
+        secureWriteFile(CONFIG_FILE, `${JSON.stringify({
+          clientId: encrypt(fileConfig.clientId, DATA_DIR),
+          clientSecret: encrypt(fileConfig.clientSecret, DATA_DIR)}, null, 2)}\n`);
+      }
+      fileConfig.clientId = decrypt(fileConfig.clientId, DATA_DIR);
+      fileConfig.clientSecret = decrypt(fileConfig.clientSecret, DATA_DIR);
+    } catch (_) { throw new Error('Google OAuth yapılandırması güvenli biçimde okunamadı; dosya korunarak işlem durduruldu.'); }
   }
   if (fileConfig.disabled) return {clientId: '', clientSecret: ''};
   return {clientId: process.env.GOOGLE_CLIENT_ID || fileConfig.clientId || '',
@@ -42,9 +56,8 @@ function saveConfig({clientId, clientSecret}) {
   if (!String(clientId || '').trim() || !String(clientSecret || '').trim()) {
     throw new Error('Google OAuth istemci kimliği ve gizli anahtarı gerekli.');
   }
-  fs.mkdirSync(path.dirname(CONFIG_FILE), {recursive: true});
-  fs.writeFileSync(CONFIG_FILE, `${JSON.stringify({clientId: clientId.trim(),
-    clientSecret: clientSecret.trim()}, null, 2)}\n`, {encoding: 'utf8', mode: 0o600});
+  secureWriteFile(CONFIG_FILE, `${JSON.stringify({clientId: encrypt(clientId.trim(), DATA_DIR),
+    clientSecret: encrypt(clientSecret.trim(), DATA_DIR)}, null, 2)}\n`);
 }
 function configStatus() {
   const config = readConfig();
@@ -53,8 +66,7 @@ function configStatus() {
 }
 function removeConfig() {
   // A persistent tombstone also disables environment-provided credentials after restart.
-  fs.mkdirSync(path.dirname(CONFIG_FILE), {recursive: true});
-  fs.writeFileSync(CONFIG_FILE, '{"disabled":true}\n', {encoding: 'utf8', mode: 0o600});
+  secureWriteFile(CONFIG_FILE, '{"disabled":true}\n');
   configGeneration += 1;
   pendingStates.clear();
 }

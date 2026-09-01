@@ -298,6 +298,7 @@
       <p>Her proje kendi kaynak klasörünü ve Firebase projesini ayrı saklar. Önizleme, geçici bir Git çalışma alanında hazırlanır.</p>
       <label for="repositoryPathInput">Proje klasörü</label>
       <input id="repositoryPathInput" placeholder="C:\Projeler\WebSitem">
+      <label class="modal-note trust-check" for="trustRepositoryCode"><input type="checkbox" id="trustRepositoryCode"> <span>Bu Git deposuna güveniyorum. SEOAutoPilot'ın izole çalışma alanında güvenli proje derlemesini çalıştırabileceğini anlıyorum.</span></label>
       <p class="modal-description">Kayıtlı Firebase hesapları otomatik kontrol edilir; bu projeye erişebilen hesap kullanılır. Eksik hesabı terminalde <code>firebase login:add eposta</code> ile bir kez ekle. Kontrol, Hosting erişimini doğrular; yayın için gereken ek izinler işlem sırasında Firebase tarafından denetlenir.</p>
       <div class="modal-note"><span>i</span>Ana çalışma klasöründeki mevcut değişikliklere dokunulmaz. Canlı yayın için ayrıca ikinci onay gerekir.</div>
       <button class="primary-button modal-submit" id="saveDeployment">Bağlantıyı doğrula ve kaydet <span>→</span></button>

@@ -7,5 +7,7 @@ reports/*.json
 tmp/
 data/*.json
 data/*.tmp
+data/.master-key
+data/*.log
 data/worktrees/
 data/backups/
