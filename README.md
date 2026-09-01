@@ -2,6 +2,9 @@
 
 Birden fazla site için proje bazlı, insan onaylı Search Console fırsat motoru.
 
+Ürünün kapsamı, güvenlik sınırları ve kapanış ölçütleri için
+[`docs/MVP-SPEC.md`](docs/MVP-SPEC.md) belgesi esas alınır.
+
 ## Arayüz
 
 Sol menüde **Ayarlar**: Türkçe/English/Deutsch arayüz dili, büyük yazı,
