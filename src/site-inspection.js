@@ -37,20 +37,38 @@ async function readPage(value, origin, redirects=0) {
     req.on('close',()=>clearTimeout(timer));req.on('error',reject);
   });
 }
-function decode(value) { return value.replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>'); }
+const ENTITIES=Object.freeze({'&amp;':'&','&quot;':'"','&#39;':"'",'&apos;':"'",'&lt;':'<','&gt;':'>'});
+function decode(value) { return String(value).replace(/&(amp|quot|#39|apos|lt|gt);/gi,match=>ENTITIES[match.toLowerCase()]); }
+function blockedMarkup(value) {
+  const source=String(value);const lower=source.toLowerCase();let output='';let cursor=0;
+  const startOf=(name,from)=>{let found=lower.indexOf(`<${name}`,from);while(found>=0){const next=lower[found+name.length+1];if(!next||/[\s/>]/u.test(next))return found;found=lower.indexOf(`<${name}`,found+name.length+1);}return -1;};
+  while(cursor<source.length){
+    const candidates=[{start:lower.indexOf('<!--',cursor),end:'-->'},
+      {start:startOf('script',cursor),end:'</script'},
+      {start:startOf('style',cursor),end:'</style'}].filter(item=>item.start>=0)
+        .sort((a,b)=>a.start-b.start);
+    if(!candidates.length){output+=source.slice(cursor);break;}
+    const blocked=candidates[0];output+=source.slice(cursor,blocked.start);
+    const closing=lower.indexOf(blocked.end,blocked.start+1);
+    if(closing<0)break;
+    const end=blocked.end==='-->'?closing+3:lower.indexOf('>',closing)+1;
+    if(end<=0)break;cursor=end;
+  }
+  return output;
+}
 function attrs(tag) {
   return Object.fromEntries([...tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)].map(m=>[m[1].toLowerCase(),decode(m[2]??m[3]??m[4])]));
 }
 function language(value) { try {return /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(value||'')?Intl.getCanonicalLocales(value)[0]:null;} catch{return null;} }
 function extract(html,url) {
   // Page contents are evidence, never executable code or instructions.
-  const clean=html.replace(/<!--[\s\S]*?-->/g,'').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
+  const clean=blockedMarkup(html);
   const declared=language(attrs(clean.match(/<html\b[^>]*>/i)?.[0]||'').lang);
   const links=[...clean.matchAll(/<(?:a|link)\b[^>]*>/gi)].map(m=>attrs(m[0]));
   const title=decode(clean.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||'').replace(/<[^>]*>/g,'').trim().slice(0,180);
   const description=[...clean.matchAll(/<meta\b[^>]*>/gi)].map(m=>attrs(m[0])).find(a=>a.name?.toLowerCase()==='description')?.content?.slice(0,1000)||'';
   const styles=links.filter(a=>(a.rel||'').split(/\s+/).includes('stylesheet')).map(a=>a.href).filter(Boolean).slice(0,8);
-  const text=clean.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  const text=clean.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
   return {url,title,description,language:text.length>=160?declared:null,declaredLanguage:declared,
     warning:text.length<160?'İçerik yetersiz veya JavaScript ile yükleniyor.':!declared?'Sayfada dil bildirimi yok.':null,
     links:links.filter(a=>a.href).map(a=>({href:a.href,language:language(a.hreflang),alternate:(a.rel||'').includes('alternate')})),styles};

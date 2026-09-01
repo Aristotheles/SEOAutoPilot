@@ -12,6 +12,8 @@ test('crawler rejects private networks, other origins, protocols and credentials
 test('extracts declared languages and never executes scripts or guesses thin content',()=>{
   assert.equal(extract(html('de'),project.siteUrl).language,'de');
   assert.equal(extract('<html lang="en"><script>evil()</script><body><div id="app"></div></body></html>',project.siteUrl).language,null);
+  assert.equal(extract(`<html lang="de"><script>bad ${'fake content '.repeat(30)}</script ><body>Kurz</body></html>`,project.siteUrl).language,null);
+  assert.equal(extract(`<html lang="de"><style>bad ${'fake content '.repeat(30)}</style ><body>Kurz</body></html>`,project.siteUrl).language,null);
   assert.equal(extract(html('invalid-language!'),project.siteUrl).language,null);
 });
 test('discovers sitemap languages, excludes external URLs and blocks unknown pages',async()=>{

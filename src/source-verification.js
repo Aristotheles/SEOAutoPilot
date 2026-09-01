@@ -6,8 +6,8 @@ const {targetFile} = require('./deployment');
 
 function decodeText(value) {
   return String(value || '').replace(/<[^>]*>/gu, ' ').replace(/\s+/gu, ' ').trim()
-      .replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'")
-      .replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+      .replace(/&(amp|quot|#39|lt|gt);/giu, match => ({'&amp;':'&','&quot;':'"','&#39;':"'",
+        '&lt;':'<','&gt;':'>'})[match.toLowerCase()]);
 }
 
 function attribute(tag, name) {

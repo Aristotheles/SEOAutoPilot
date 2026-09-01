@@ -172,7 +172,7 @@ function htmlEscape(value, attribute = false) {
 
 function seoFields(html) {
   const text=value=>String(value||'').replace(/<[^>]*>/gu,' ').replace(/\s+/gu,' ').trim()
-      .replaceAll('&amp;','&').replaceAll('&quot;','"').replaceAll('&#39;',"'");
+      .replace(/&(amp|quot|#39);/giu,match=>({'&amp;':'&','&quot;':'"','&#39;':"'"})[match.toLowerCase()]);
   const meta=(String(html).match(/<meta\b[^>]*name=["']description["'][^>]*>/iu)?.[0]||
     String(html).match(/<meta\b[^>]*content=["'][^"']*["'][^>]*name=["']description["'][^>]*>/iu)?.[0]||'');
   return {title:text(String(html).match(/<title\b[^>]*>([\s\S]*?)<\/title>/iu)?.[1]),

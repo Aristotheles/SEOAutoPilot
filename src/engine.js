@@ -15,7 +15,7 @@ const CLUSTERS = Object.freeze([]);
 
 function metric(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const normalized = String(value ?? '').trim().replace('%', '').replace(',', '.');
+  const normalized = String(value ?? '').trim().replaceAll('%', '').replace(',', '.');
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 }
