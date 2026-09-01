@@ -5,6 +5,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {URL} = require('node:url');
 const crypto = require('node:crypto');
+const {execFile} = require('node:child_process');
+const PACKAGED = Boolean(process.pkg);
+const RUNTIME_DIR = PACKAGED ? path.dirname(process.execPath) : __dirname;
+if (PACKAGED && !process.env.SEO_AUTOPILOT_DATA_DIR) {
+  process.env.SEO_AUTOPILOT_DATA_DIR = path.join(RUNTIME_DIR, 'data');
+}
 const {auditSecurity, sanitizeError, securityHeaders} = require('./src/security');
 const {loadExport} = require('./src/importer');
 const {analyzeExport} = require('./src/engine');
@@ -488,4 +494,10 @@ server.requestTimeout = 15_000;
 server.keepAliveTimeout = 5_000;
 server.maxRequestsPerSocket = 1000;
 
-server.listen(PORT, HOST, () => console.log(`SEOAutoPilot hazır: http://${HOST}:${server.address().port}`));
+server.listen(PORT, HOST, () => {
+  const origin = localOrigin();
+  console.log(`SEOAutoPilot hazır: ${origin}`);
+  if (PACKAGED && process.platform === 'win32' && process.env.SEO_AUTOPILOT_NO_BROWSER !== '1') {
+    execFile('rundll32.exe', ['url.dll,FileProtocolHandler', origin], {windowsHide:true}, () => {});
+  }
+});
