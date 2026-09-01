@@ -18,5 +18,15 @@ function assertProfileWorkflow(project, workflow) {
   if (project.profile?.status !== 'confirmed') throw new Error('Önce Site Profili bölümünde proje kurallarını doğrula.');
   if (workflow.profileRevision !== project.profile.revision) throw new Error('Profil değişti. Önce önerileri yenile ve değişiklikleri tekrar onayla.');
   if (workflow.blockedReason) throw new Error(workflow.blockedReason);
+  if (workflow.sourceVerification && ['UPDATE_EXISTING','CTR_TEST'].includes(workflow.action)) {
+    const current = require('./source-verification').inspectSourcePage(workflow, project);
+    if (current.status !== 'verified') throw new Error(current.blocker);
+    const before = workflow.sourceVerification.snapshot || {};
+    for (const key of ['sourceFile','language','title','meta','h1','canonical']) {
+      if (before[key] !== current.snapshot[key]) {
+        throw new Error('Kaynak sayfa öneri hazırlandıktan sonra değişti. Önerileri yenileyip tekrar incele.');
+      }
+    }
+  }
 }
 module.exports = {analysisOptions, reanalyzeReport, assertProfileWorkflow};

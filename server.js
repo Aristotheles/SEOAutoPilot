@@ -16,6 +16,7 @@ const bulkModule=require('./src/bulk-publish');
 const {inspectSite,profileFromInspection} = require('./src/site-inspection');
 const inspections = new Map();
 const deployment = require('./src/deployment');
+const {enrichWorkflowSources} = require('./src/source-verification');
 const bulkPublisher=bulkModule.createBulkPublisher(require('./src/project-store'),deployment);
 bulkPublisher.recover();
 const {mergeEditorialBacklog} = require('./src/seo-backlog');
@@ -64,8 +65,11 @@ function projectReport(project) {
   return {report: emptyReport(project), directory:'', mode:'empty'};
 }
 function projectWorkflows(projectId, report, existing = []) {
-  const profile = getPrivateProject(projectId)?.profile;
-  return mergeEditorialBacklog(projectId, syncWorkflows(projectId, report, existing, profile), existing, profile);
+  const project = getPrivateProject(projectId);
+  const profile = project?.profile;
+  const workflows = mergeEditorialBacklog(projectId,
+      syncWorkflows(projectId, report, existing, profile), existing, profile);
+  return enrichWorkflowSources(workflows, project);
 }
 function serveStatic(requestUrl, response) {
   const pathname = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
