@@ -4,9 +4,51 @@
 [![CodeQL](https://github.com/Aristotheles/SEOAutoPilot/actions/workflows/codeql.yml/badge.svg)](https://github.com/Aristotheles/SEOAutoPilot/actions/workflows/codeql.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
-SEOAutoPilot, Google Search Console verilerini proje bağlamıyla yorumlayan ve yalnız
-kullanıcı onayından sonra bağlı site deposuna kontrollü SEO değişiklikleri uygulayan
-yerel, açık kaynaklı bir uygulamadır. Türkçe, İngilizce ve Almanca arayüz sunar.
+<p align="center">
+  <strong>Search Console sinyallerini güvenilir ve uygulanabilir SEO kararlarına dönüştür.</strong><br>
+  <em>Turn Search Console signals into SEO decisions you can understand, approve and ship.</em>
+</p>
+
+<p align="center">
+  <a href="#türkçe">Türkçe</a> ·
+  <a href="#english">English</a> ·
+  <a href="https://github.com/Aristotheles/SEOAutoPilot/releases/latest">Son sürüm / Latest release</a> ·
+  <a href="https://github.com/Aristotheles/SEOAutoPilot/issues">Geri bildirim / Feedback</a>
+</p>
+
+## Türkçe
+
+**SEOAutoPilot, ham SEO verisini yapılacaklar kalabalığına değil, denetlenebilir bir
+karar sürecine dönüştürür.** Google Search Console verilerini sitenin dili, hedefi,
+mevcut sayfaları ve proje bağlantılarıyla birlikte değerlendirir; fırsatları
+önceliklendirir, önerinin gerekçesini gösterir ve yalnız sen onayladıktan sonra
+uygulanabilir değişiklikleri bağlı siteye taşır.
+
+Birden fazla projeyi birbirinden izole yönetebilir, Türkçe/İngilizce/Almanca
+arayüzü kullanabilir, toplu yayın öncesinde değişecek alanları tek ekranda görebilir
+ve yayın sonrasındaki 14/28 günlük etki dönemini takip edebilirsin. Veriler ve OAuth
+bilgileri yerel kalır; SEOAutoPilot gizli anahtarlarını kaynak koda taşımaz.
+
+> **SEO sihirli bir düğme değildir. SEOAutoPilot da öyle davranmaz:** veriyi açıklar,
+> belirsizliği gösterir, geri dönüşü zor kararları insana bırakır ve yapılan işlemin
+> kaydını tutar.
+
+## English
+
+**SEOAutoPilot turns raw SEO data into an auditable decision workflow—not another
+overwhelming list of generic recommendations.** It evaluates Google Search Console
+signals in the context of each site's language, goals, existing pages and deployment
+connection; then ranks opportunities, explains the evidence and prepares controlled
+changes that move forward only with human approval.
+
+Run multiple isolated projects, use the Turkish/English/German interface, review an
+exact batch before publishing, and follow the 14/28-day impact window after a release.
+Project data and OAuth credentials stay local, while secrets remain outside the
+repository and published site.
+
+> **SEO is not a magic button, and SEOAutoPilot does not pretend otherwise:** it makes
+> the evidence visible, marks uncertainty, keeps consequential decisions human and
+> leaves a traceable record of what changed.
 
 > **Durum:** Aktif MVP (`0.11.x`). Windows üzerinde doğrulanır; Node.js 22+ bulunan
 > macOS/Linux sistemlerinde temel analiz ve arayüz çalışır. Firebase yayın adaptörünün
@@ -305,6 +347,33 @@ gördüğünü doğruladığı iddia edilmez.
 
 Güvenlik açığını herkese açık issue olarak paylaşma. Hassas bilgi içermeyen hatalar ve
 özellik önerileri için GitHub issue şablonlarını kullan.
+
+## Topluluk ve destek · Community & support
+
+SEOAutoPilot bağımsız geliştirilen, reklamsız ve açık kaynaklı bir projedir. İşini
+kolaylaştırıyorsa yıldız vererek, geri bildirim göndererek, katkıda bulunarak veya
+geliştirme çalışmalarını destekleyerek projenin sürdürülebilirliğine yardımcı
+olabilirsin.
+
+SEOAutoPilot is independently built, ad-free and open source. If it saves you time,
+you can help keep it moving by starring the repository, sharing feedback,
+contributing code or supporting continued development.
+
+<p align="center">
+  <a href="https://patreon.com/opensource2"><img src="https://img.shields.io/badge/Patreon-Destekle_%C2%B7_Support-F96854?style=for-the-badge&logo=patreon&logoColor=white" alt="Patreon üzerinden destekle"></a>
+  <a href="https://x.com/VibeKodlama"><img src="https://img.shields.io/badge/X-@VibeKodlama-000000?style=for-the-badge&logo=x&logoColor=white" alt="X üzerinde VibeKodlama"></a>
+  <a href="https://github.com/Aristotheles"><img src="https://img.shields.io/badge/GitHub-Aristotheles-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub üzerinde Aristotheles"></a>
+</p>
+
+**Bitcoin (BTC · BlueWallet):**
+`bc1q7kpfdc9stpnexvwgpzxl8nzaua8wfyp2ht8xxa`
+
+Diğer üretimler ve kanallar · More projects and channels:
+
+- [Breath of Rumi — YouTube](https://www.youtube.com/@BreathofRumi)
+- [Kalpten Nağme — YouTube](https://www.youtube.com/@KalptenNa%C4%9Fme)
+- [GermanChunks Official — Instagram](https://instagram.com/germanchunksofficial)
+- [Kalpten Nağme — Instagram](https://instagram.com/kalptennagme)
 
 ## Lisans
 
