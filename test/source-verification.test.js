@@ -16,10 +16,11 @@ function fixture(html) {
 }
 
 test('reads trusted source SEO fields and adds existing values to the comparison', () => {
-  const x=fixture('<html lang="de"><head><title>Alt &amp; gut</title><meta content="Alt" name="description"><link href="https://example.com/blog/seite.html" rel="canonical"></head><body><h1><span>Alte</span> Überschrift</h1></body></html>');
+  const x=fixture('<html lang="de"><head><title>Alt &amp; gut</title><meta content="Alt" name="description"><link href="https://example.com/blog/seite.html" rel="canonical"><link rel="alternate" hreflang="en" href="/en/page"></head><body><h1><span>Alte</span> Überschrift</h1></body></html>');
   const check=inspectSourcePage(x.workflow,x.project);
   assert.equal(check.status,'verified'); assert.equal(check.snapshot.title,'Alt & gut');
   assert.equal(check.snapshot.h1,'Alte Überschrift');
+  assert.deepEqual(check.snapshot.hreflang,[{language:'en',href:'/en/page'}]);
   const enriched=enrichWorkflowSource(x.workflow,x.project);
   assert.equal(enriched.brief.changes[0].current,'Alt & gut');
   assert.equal(enriched.blockedReason,null);

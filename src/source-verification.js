@@ -37,6 +37,8 @@ function inspectSourcePage(workflow, project) {
       meta: decodeText(attribute(descriptionTag, 'content')),
       h1: decodeText(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/iu)?.[1]),
       canonical: attribute(canonicalTag, 'href'),
+      hreflang: linkTags.filter(tag=>attribute(tag,'rel').toLowerCase().split(/\s+/u).includes('alternate')&&attribute(tag,'hreflang'))
+          .map(tag=>({language:attribute(tag,'hreflang').toLowerCase(),href:attribute(tag,'href')})),
       checkedAt: new Date().toISOString(),
     };
     const required = [['language', 'HTML dil etiketi'], ['title', 'SEO başlığı'],

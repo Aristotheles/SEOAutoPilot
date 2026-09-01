@@ -123,6 +123,11 @@ geri alınmaz.
 
 Harici paket gerektirmez.
 
+Yeni kurulum boş bir proje listesiyle açılır; LingoDecoder veya başka bir marka
+otomatik eklenmez. Her site kullanıcı tarafından oluşturulur. Eski kurulumdan
+taşınan LingoDecoder kaydı legacy analiz paketini koruyabilir, yeni projeler
+generic motorla başlar.
+
 ## Site kaynak bağlantıları
 
 Her projenin Git/Firebase bağlantısı bağımsızdır. Vite projelerinde statik SEO
@@ -195,6 +200,10 @@ Git dışında tutulur. API yanıtları refresh token veya OAuth client secret i
 ```powershell
 npm run analyze -- "C:\path\to\Search-Console-export"
 ```
+
+CSV klasöründe Search Console'un Türkçe, İngilizce veya Almanca dosya adları
+tanınır (`Grafik/Chart/Diagramm`, `Sorgular/Queries/Suchanfragen`,
+`Sayfa sayısı/Pages/Seiten` ve eşlik eden cihaz/ülke dosyaları).
 
 Raporu dosyaya yazmak için:
 

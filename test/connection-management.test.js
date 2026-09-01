@@ -45,7 +45,7 @@ test('global removal clears tokens and persists disabled state even with environ
 
 test('removal endpoints require confirmation, isolate projects, preserve files and handle no projects', async () => {
   const server = spawn(process.execPath, ['server.js'], {cwd: path.join(__dirname, '..'),
-    env: {...process.env, PORT: '0', SEO_AUTOPILOT_DATA_DIR: directory}, stdio: ['ignore', 'pipe', 'pipe']});
+    env: {...process.env, PORT: '43179', SEO_AUTOPILOT_DATA_DIR: directory}, stdio: ['ignore', 'pipe', 'pipe']});
   try {
     const base = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Test server timeout')), 10000);

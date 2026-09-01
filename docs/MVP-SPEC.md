@@ -213,14 +213,14 @@ Durumlar: keşif → onay bekliyor → onaylı → hazırlanıyor → yayına ha
 
 ## 12. Teslim kontrol listesi
 
-- [ ] P0 maddeleri kapalı
-- [ ] Starter proje opt-in
-- [ ] README gerçek onay/yayın modeliyle aynı
-- [ ] Gerçek sitede §3 doğrulaması
-- [ ] Tüm testler yeşil
-- [ ] `data/`, OAuth, rapor ve yedekler `.gitignore` kapsamında
-- [ ] Secret taraması temiz
-- [ ] Google izninin ayrıca Google hesap sayfasından kaldırılması gerektiği belgeli
+- [x] P0 maddeleri kapalı
+- [x] Boş kurulum marka/starter proje dayatmıyor; legacy LingoDecoder yalnız taşınmış mevcut kayıtta opt-in
+- [x] README gerçek onay/yayın modeliyle aynı
+- [x] GermanChunks kaynak deposunda 34 dil eşleşmesi denetlendi; 33 sayfa geçti, değişiklik hedefi olmayan `/privacy.html` eksik canonical nedeniyle doğru biçimde bloklandı
+- [x] Tüm testler yeşil
+- [x] `data/`, OAuth, rapor ve yedekler `.gitignore` kapsamında
+- [x] Secret taraması temiz
+- [x] Google izninin ayrıca Google hesap sayfasından kaldırılması gerektiği belgeli
 
 ## 13. MVP sonrası
 

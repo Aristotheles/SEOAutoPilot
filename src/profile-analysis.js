@@ -22,8 +22,8 @@ function assertProfileWorkflow(project, workflow) {
     const current = require('./source-verification').inspectSourcePage(workflow, project);
     if (current.status !== 'verified') throw new Error(current.blocker);
     const before = workflow.sourceVerification.snapshot || {};
-    for (const key of ['sourceFile','language','title','meta','h1','canonical']) {
-      if (before[key] !== current.snapshot[key]) {
+    for (const key of ['sourceFile','language','title','meta','h1','canonical','hreflang']) {
+      if (JSON.stringify(before[key]) !== JSON.stringify(current.snapshot[key])) {
         throw new Error('Kaynak sayfa öneri hazırlandıktan sonra değişti. Önerileri yenileyip tekrar incele.');
       }
     }
