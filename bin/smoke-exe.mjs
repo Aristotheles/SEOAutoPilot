@@ -30,6 +30,18 @@ try {
   const health=await fetch(`${base}/api/health`,{headers:{Cookie:cookie}});
   assert.equal(health.status,200);
   assert.equal((await health.json()).ok,true);
+  const duplicate=spawn(executable,[],{cwd:path.dirname(executable),windowsHide:true,
+    env:{...process.env,PORT:new URL(base).port,SEO_AUTOPILOT_NO_BROWSER:'1',
+      SEO_AUTOPILOT_DATA_DIR:dataDir},stdio:['ignore','pipe','pipe']});
+  let duplicateOutput='';
+  duplicate.stdout.on('data',chunk=>{duplicateOutput+=chunk;});
+  const duplicateExit=await new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>{duplicate.kill();reject(new Error('İkinci EXE kapanmadı.'));},10_000);
+    duplicate.once('error',reject);
+    duplicate.once('exit',code=>{clearTimeout(timeout);resolve(code);});
+  });
+  assert.equal(duplicateExit,0);
+  assert.match(duplicateOutput,/zaten çalışıyor/u);
   console.log(`Windows EXE duman testi geçti: ${base}`);
 } finally {
   child.kill();

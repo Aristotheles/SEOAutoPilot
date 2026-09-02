@@ -156,6 +156,8 @@ Windows kullanıcıları `scripts/start-windows.cmd` dosyasını da çalıştır
 Node.js kurmadan kullanmak için [son sürümdeki Windows x64 EXE dosyasını](https://github.com/Aristotheles/SEOAutoPilot/releases/latest)
 indirip çift tıkla. Tarayıcı otomatik açılır; yerel veriler EXE'nin yanındaki `data/`
 klasöründe tutulur. Yayın özellikleri için Git ve Firebase CLI ayrıca gerekir.
+SEOAutoPilot zaten `127.0.0.1:4173` üzerinde çalışıyorsa EXE ikinci bir sunucu
+başlatmaz; çalışan arayüzü tarayıcıda açar.
 
 Ardından `http://127.0.0.1:4173` adresini aç. Rapor bağlanmamış projeler veri
 bekliyor olarak gösterilir. Sağ üstteki **Veri içe aktar** düğmesiyle Search Console dışa aktarım
