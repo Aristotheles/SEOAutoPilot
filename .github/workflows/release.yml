@@ -1,4 +1,4 @@
-name: Release portable package
+name: Release source package
 
 on:
   push:
@@ -17,54 +17,37 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-      - run: npm ci
       - run: npm run verify
       - run: npm run smoke
-      - run: npm run build:exe
-      - run: npm run smoke:exe
-      - name: Build release files and checksums
+      - name: Build source archive and checksum
         shell: pwsh
         run: |
           $name = "SEOAutoPilot-${{ github.ref_name }}-portable"
           git archive --format=zip --output "$name.zip" HEAD
-          Copy-Item "dist/SEOAutoPilot.exe" "SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe"
-          foreach ($file in @("$name.zip", "SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe")) {
-            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $file" | Set-Content "$file.sha256" -Encoding ascii
-          }
-      - name: Attest release files
+          $hash = (Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name.zip" | Set-Content "$name.zip.sha256" -Encoding ascii
+      - name: Attest source archive
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: |
             SEOAutoPilot-${{ github.ref_name }}-portable.zip
-            SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: SEOAutoPilot-${{ github.ref_name }}-release
+          name: SEOAutoPilot-${{ github.ref_name }}-source
           path: |
             SEOAutoPilot-${{ github.ref_name }}-portable.zip
             SEOAutoPilot-${{ github.ref_name }}-portable.zip.sha256
-            SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe
-            SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe.sha256
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           @'
-          > [!WARNING]
-          > **Unsigned Windows build / İmzasız Windows sürümü:** A code-signing certificate is not yet available. Windows SmartScreen may display a warning on first launch. Download only from this official release, verify the SHA-256 file, and keep the SEOAutoPilot console window open while using the application.
+          > [!IMPORTANT]
+          > Bu sürüm yalnız kaynak arşividir. Windows EXE, güvenilir kod imzalama süreci tamamlanana kadar yayımlanmaz.
 
-          ## Windows
-
-          `SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe` dosyasını indirip çalıştır. Tarayıcı otomatik açılır; Node.js kurulumu gerekmez. Bu sürüm kod imzalama sertifikası bulunmadığı için imzasızdır ve Windows SmartScreen ilk açılışta uyarı gösterebilir.
-
-          Download and run `SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe`. It opens the browser automatically and does not require Node.js. This build is unsigned because the project does not yet have a code-signing certificate, so Windows SmartScreen may warn on first launch.
-
-          SHA-256 files and GitHub artifact attestations are included for verification.
+          This is a source-only release. No Windows EXE is published until a trustworthy code-signing pipeline is available. SHA-256 and GitHub artifact attestation are included.
           '@ | Set-Content release-notes.md -Encoding utf8
           gh release create "${{ github.ref_name }}" --verify-tag --notes-file release-notes.md `
             "SEOAutoPilot-${{ github.ref_name }}-portable.zip" `
-            "SEOAutoPilot-${{ github.ref_name }}-portable.zip.sha256" `
-            "SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe" `
-            "SEOAutoPilot-${{ github.ref_name }}-windows-x64.exe.sha256"
+            "SEOAutoPilot-${{ github.ref_name }}-portable.zip.sha256"

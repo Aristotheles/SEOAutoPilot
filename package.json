@@ -1,32 +1,18 @@
 {
   "name": "seo-autopilot",
-  "version": "0.11.2",
+  "version": "0.11.3",
   "private": true,
   "description": "Project-aware, human-approved Search Console opportunity engine.",
   "type": "commonjs",
-  "bin": "server.js",
   "scripts": {
     "test": "node --test test/*.test.js",
     "check:secrets": "node bin/check-secrets.mjs",
     "verify": "npm test && npm run check:secrets",
     "smoke": "node bin/smoke-test.mjs",
     "analyze": "node bin/analyze-export.mjs",
-    "start": "node server.js",
-    "build:exe": "pkg . --targets node22-win-x64 --output dist/SEOAutoPilot.exe --compress Brotli",
-    "smoke:exe": "node bin/smoke-exe.mjs"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=22"
-  },
-  "devDependencies": {
-    "@yao-pkg/pkg": "6.22.0"
-  },
-  "pkg": {
-    "assets": [
-      "public/**/*"
-    ],
-    "scripts": [
-      "src/**/*.js"
-    ]
   }
 }

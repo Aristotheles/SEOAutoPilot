@@ -5,12 +5,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {URL} = require('node:url');
 const crypto = require('node:crypto');
-const {execFile} = require('node:child_process');
-const PACKAGED = Boolean(process.pkg);
-const RUNTIME_DIR = PACKAGED ? path.dirname(process.execPath) : __dirname;
-if (PACKAGED && !process.env.SEO_AUTOPILOT_DATA_DIR) {
-  process.env.SEO_AUTOPILOT_DATA_DIR = path.join(RUNTIME_DIR, 'data');
-}
 const {auditSecurity, sanitizeError, securityHeaders} = require('./src/security');
 const {loadExport} = require('./src/importer');
 const {analyzeExport} = require('./src/engine');
@@ -44,25 +38,6 @@ const MIME = Object.freeze({'.html': 'text/html; charset=utf-8',
 const SESSION_TOKEN = crypto.randomBytes(32).toString('base64url');
 const SESSION_COOKIE = `seoautopilot_session=${SESSION_TOKEN}; HttpOnly; SameSite=Lax; Path=/`;
 const requestWindows = new Map();
-
-function openLocalBrowser(origin) {
-  if (process.platform !== 'win32' || process.env.SEO_AUTOPILOT_NO_BROWSER === '1') return;
-  execFile('rundll32.exe', ['url.dll,FileProtocolHandler', origin], {windowsHide:true}, () => {});
-}
-
-function existingSeoAutoPilot(origin) {
-  return new Promise((resolve) => {
-    const request=http.get(origin,{headers:{Accept:'text/html'}},response=>{
-      let body='';
-      response.setEncoding('utf8');
-      response.on('data',chunk=>{if(body.length<64_000)body+=chunk;});
-      response.on('end',()=>resolve(response.statusCode===200 &&
-        /<title>SEOAutoPilot(?:\s|—)|class="brand-name">SEOAutoPilot</u.test(body)));
-    });
-    request.setTimeout(2000,()=>request.destroy());
-    request.on('error',()=>resolve(false));
-  });
-}
 
 function responseHeaders(extra = {}) { return {...securityHeaders(), ...extra}; }
 function activePort() { return server?.listening ? server.address().port : PORT; }
@@ -513,24 +488,9 @@ server.requestTimeout = 15_000;
 server.keepAliveTimeout = 5_000;
 server.maxRequestsPerSocket = 1000;
 
-server.on('error',async error=>{
-  if(PACKAGED && error.code==='EADDRINUSE'){
-    const origin=`http://${HOST}:${PORT}`;
-    if(await existingSeoAutoPilot(origin)){
-      console.log(`SEOAutoPilot zaten çalışıyor: ${origin}`);
-      openLocalBrowser(origin);
-      return;
-    }
-    console.error(`SEOAutoPilot açılamadı: ${origin} adresi başka bir uygulama tarafından kullanılıyor.`);
-    process.exitCode=1;
-    return;
-  }
+server.on('error',error=>{
   console.error(`SEOAutoPilot açılamadı: ${sanitizeError(error)}`);
   process.exitCode=1;
 });
 
-server.listen(PORT, HOST, () => {
-  const origin = localOrigin();
-  console.log(`SEOAutoPilot hazır: ${origin}`);
-  if (PACKAGED) openLocalBrowser(origin);
-});
+server.listen(PORT, HOST, () => console.log(`SEOAutoPilot hazır: ${localOrigin()}`));
