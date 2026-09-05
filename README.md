@@ -174,9 +174,13 @@ src-tauri/target/release/bundle/msi/SEOAutoPilot_<sürüm>_x64_tr-TR.msi
 src-tauri/target/release/bundle/nsis/SEOAutoPilot_<sürüm>_x64-setup.exe
 ```
 
-Tauri kabuğu arayüzü WebView2 içinde açar. Node.js ayrı ve değiştirilmemiş bir
-yardımcı süreçtir; uygulama penceresi normal kapatıldığında o da kapatılır. Yerel
-proje verileri `%APPDATA%\com.aristotheles.seoautopilot` altında tutulur.
+Tauri kabuğu arayüzü WebView2 içinde açar. Node.js ayrı ve değiştirilmemiş,
+`seoautopilot-node.exe` adlı uygulamaya özel bir yardımcı süreçtir. Windows bu
+süreci ana uygulamayla aynı iş nesnesinde tutar; uygulama normal kapansa, çökse
+veya güncelleyici tarafından sonlandırılsa bile yardımcı süreç ve dosya kilidi
+geride kalmaz. NSIS güncelleyicisi ayrıca eski yardımcı süreci kurulumdan önce
+güvenle kapatır. Yerel proje verileri
+`%APPDATA%\com.aristotheles.seoautopilot` altında tutulur.
 
 Ardından `http://127.0.0.1:4173` adresini aç. Rapor bağlanmamış projeler veri
 bekliyor olarak gösterilir. Sağ üstteki **Veri içe aktar** düğmesiyle Search Console dışa aktarım

@@ -4,7 +4,7 @@ $nodeVersion = '22.23.2'
 $expectedHash = '0d0f5e39f9f3d9587bc19f73eab3c2c9c4903fd02d6dbf9c853dd81b3d95fad4'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $binaryDirectory = Join-Path $projectRoot 'src-tauri\binaries'
-$target = Join-Path $binaryDirectory 'node-x86_64-pc-windows-msvc.exe'
+$target = Join-Path $binaryDirectory 'seoautopilot-node-x86_64-pc-windows-msvc.exe'
 $download = Join-Path ([System.IO.Path]::GetTempPath()) "seoautopilot-node-$nodeVersion.exe"
 
 function Get-Sha256([string]$Path) {

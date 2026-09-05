@@ -51,5 +51,5 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
           Copy-Item -LiteralPath (Get-Command node).Source `
-            -Destination src-tauri/binaries/node-x86_64-pc-windows-msvc.exe
+            -Destination src-tauri/binaries/seoautopilot-node-x86_64-pc-windows-msvc.exe
       - run: cargo check --locked --manifest-path src-tauri/Cargo.toml

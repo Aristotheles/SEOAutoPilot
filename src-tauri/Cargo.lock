@@ -2625,10 +2625,11 @@ dependencies = [
 
 [[package]]
 name = "seoautopilot"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "tauri",
  "tauri-build",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
