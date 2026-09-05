@@ -2625,7 +2625,7 @@ dependencies = [
 
 [[package]]
 name = "seoautopilot"
-version = "0.12.5"
+version = "1.0.0"
 dependencies = [
  "tauri",
  "tauri-build",
