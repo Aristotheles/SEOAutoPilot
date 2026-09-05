@@ -146,16 +146,6 @@ npm start
 
 Windows kullanıcıları `scripts/start-windows.cmd` dosyasını da çalıştırabilir.
 
-> [!NOTE]
-> Masaüstü paketi henüz ücretli bir kod imzalama sertifikasıyla imzalanmadı; Windows
-> ilk çalıştırmada “Bilinmeyen yayıncı” uyarısı gösterebilir. (Geçmişte, `v0.11.2`
-> sürümündeki eski `pkg` tabanlı tek dosyalık EXE, Microsoft Defender tarafından
-> yanlış pozitif olarak işaretlenip geri çekilmişti; o paketleme yöntemi tamamen
-> kaldırıldı.) Masaüstü sürümü artık Tauri ile, SHA-256 değeri sabitlenmiş resmi
-> Node.js yardımcı programı kullanılarak standart MSI/NSIS paketi olarak derleniyor
-> ve [Releases](https://github.com/Aristotheles/SEOAutoPilot/releases) sayfasından
-> indirilebiliyor.
-
 ### Windows masaüstü paketini derleme
 
 Windows 10/11, WebView2, Rust stable ve Visual Studio 2022 C++ Build Tools gerekir.
