@@ -46,5 +46,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run tauri:prepare
+      - name: Stage the setup-node runtime for the compile-only sidecar check
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
+          Copy-Item -LiteralPath (Get-Command node).Source `
+            -Destination src-tauri/binaries/node-x86_64-pc-windows-msvc.exe
       - run: cargo check --locked --manifest-path src-tauri/Cargo.toml
