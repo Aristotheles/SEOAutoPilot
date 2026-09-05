@@ -146,14 +146,7 @@ npm start
 
 Windows kullanıcıları `scripts/start-windows.cmd` dosyasını da çalıştırabilir.
 
-> [!CAUTION]
-> **Eski tek dosyalı Windows EXE geri çekildi.** `v0.11.2` ikili dosyası Microsoft
-> Defender tarafından `Trojan:Win32/Wacatac.B!ml` olarak karantinaya alındığı için
-> çalıştırılmadan yayından kaldırıldı. Defender istisnası eklemeyin ve dosyayı
-> karantinadan geri yüklemeyin. `v0.12.0` ile `pkg` tabanlı tek EXE paketlemesi
-> kaldırıldı; masaüstü sürümü Tauri ve SHA-256 değeri sabitlenmiş resmi Node.js
-> yardımcı programıyla standart MSI/NSIS paketi olarak derlenir. Paketler kod
-> imzalama hattı tamamlanana kadar “Bilinmeyen yayıncı” uyarısı gösterebilir.
+
 
 ### Windows masaüstü paketini derleme
 
