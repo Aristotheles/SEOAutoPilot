@@ -342,7 +342,7 @@ function renderProjects() {
   $('#breadcrumbProject').textContent = state.project?.name || AppI18n.t('Proje yok');
   $('#projectInitials').textContent = initials(state.project?.name || 'SEO');
   $('#projectList').innerHTML = state.projects.map((project) =>
-    `<div class="project-management-row"><button class="project-list-item ${project.id === state.project?.id ? 'active' : ''}" data-project-id="${escapeHtml(project.id)}"><span class="avatar">${escapeHtml(initials(project.name))}</span><span class="project-list-copy"><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.siteUrl)}</small></span><span class="connection-mini ${project.connection}">${project.connection === 'connected' ? 'API bağlı' : project.hasReport ? 'CSV' : 'Yeni'}</span></button><button class="danger-button" data-remove-project="${escapeHtml(project.id)}" aria-label="${escapeHtml(project.name)} projesini kaldır">Kaldır</button></div>`).join('') || '<p>Kayıtlı proje yok. Aşağıdan yeni proje ekle.</p>';
+    `<div class="project-management-row"><button class="project-list-item ${project.id === state.project?.id ? 'active' : ''}" data-project-id="${escapeHtml(project.id)}"><span class="avatar">${escapeHtml(initials(project.name))}</span><span class="project-list-copy"><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.siteUrl)}</small></span><span class="connection-mini ${project.connection}">${project.connection === 'connected' ? AppI18n.t('API bağlı') : project.hasReport ? 'CSV' : AppI18n.t('Yeni')}</span></button><button class="danger-button" data-remove-project="${escapeHtml(project.id)}" aria-label="${escapeHtml(project.name)} ${AppI18n.t('projesini kaldır')}">${AppI18n.t('Kaldır')}</button></div>`).join('') || `<p>${AppI18n.t('Kayıtlı proje yok. Aşağıdan yeni proje ekle.')}</p>`;
   $$('[data-project-id]').forEach((button) => button.addEventListener('click', () => selectProject(button.dataset.projectId)));
   $$('[data-remove-project]').forEach((button) => button.addEventListener('click', () => removeConnection('project', button.dataset.removeProject)));
 }
@@ -350,9 +350,12 @@ function renderProjects() {
 function openProjectCenter(requestedView = null) {
   requestedViewAfterProject = requestedView;
   renderProjects();
-  $('#projectModalHint').textContent = requestedView ?
-    `${AppI18n.t(viewLabels[requestedView])} ${AppI18n.t('bölümünü kullanmak için önce bir proje ekle. Projeyi oluşturduğunda bu bölüm otomatik açılacak.')}` :
-    AppI18n.t('Her site kendi verisi, Search Console bağlantısı ve öneri kuyruğuyla çalışır.');
+  const section = requestedView ? AppI18n.t(viewLabels[requestedView]) : '';
+  $('#projectModalHint').textContent = requestedView ? {
+    tr: `${section} bölümünü kullanmak için önce bir proje ekle. Projeyi oluşturduğunda bu bölüm otomatik açılacak.`,
+    en: `Add a project to use ${section}. This section will open automatically once you create it.`,
+    de: `Füge ein Projekt hinzu, um ${section} zu verwenden. Dieser Bereich öffnet sich nach der Erstellung automatisch.`,
+  }[AppI18n.settings.language] : AppI18n.t('Her site kendi verisi, Search Console bağlantısı ve öneri kuyruğuyla çalışır.');
   $('#projectModal').hidden = false;
   $('#projectNameInput').focus();
 }

@@ -1,6 +1,6 @@
 [package]
 name = "seoautopilot"
-version = "1.0.0"
+version = "1.0.1"
 description = "Human-approved SEO opportunity engine"
 authors = ["Aristotheles"]
 edition = "2021"
