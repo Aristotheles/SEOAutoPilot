@@ -3,6 +3,7 @@
 const state = {report: null, mode: 'demo', directory: '', filter: 'decision',
   projects: [], project: null, googleStatus: null, workflows: [], deploymentStatus: null,
   workflowFilter:'actionable'};
+let requestedViewAfterProject = null;
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const format = {format:value=>new Intl.NumberFormat(AppI18n.locale()).format(value)};
@@ -325,7 +326,12 @@ function renderProjects() {
   $('.content').hidden = !state.project && !$('#view-settings').classList.contains('active');
   $('#emptyProjectPanel').hidden = Boolean(state.project);
   $('#importButton').disabled = !state.project;
-  $$('.nav-item').forEach((button) => { button.disabled = !state.project && button.dataset.view !== 'settings'; });
+  $$('.nav-item').forEach((button) => {
+    const needsProject = !state.project && button.dataset.view !== 'settings';
+    button.disabled = false;
+    button.classList.toggle('needs-project', needsProject);
+    button.title = needsProject ? `${viewLabels[button.dataset.view]} için önce bir proje ekle` : '';
+  });
   $('#currentProjectName').textContent = state.project?.name || 'Proje ekle';
   $('#breadcrumbProject').textContent = state.project?.name || 'Proje yok';
   $('#projectInitials').textContent = initials(state.project?.name || 'SEO');
@@ -335,7 +341,21 @@ function renderProjects() {
   $$('[data-remove-project]').forEach((button) => button.addEventListener('click', () => removeConnection('project', button.dataset.removeProject)));
 }
 
+function openProjectCenter(requestedView = null) {
+  requestedViewAfterProject = requestedView;
+  renderProjects();
+  $('#projectModalHint').textContent = requestedView ?
+    `${viewLabels[requestedView]} bölümünü kullanmak için önce bir proje ekle. Projeyi oluşturduğunda bu bölüm otomatik açılacak.` :
+    'Her site kendi verisi, Search Console bağlantısı ve öneri kuyruğuyla çalışır.';
+  $('#projectModal').hidden = false;
+  $('#projectNameInput').focus();
+}
+
 function setView(name) {
+  if (!state.project && name !== 'settings') {
+    openProjectCenter(name);
+    return;
+  }
   $('.content').hidden = !state.project && name !== 'settings';
   $('#emptyProjectPanel').hidden = Boolean(state.project) || name === 'settings';
   $$('.view').forEach((view) => view.classList.toggle('active', view.id === `view-${name}`));
@@ -496,8 +516,10 @@ async function createNewProject() {
       body: JSON.stringify({name: $('#projectNameInput').value, siteUrl: $('#projectUrlInput').value})});
     const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
     state.projects.push(payload.project); $('#projectNameInput').value = ''; $('#projectUrlInput').value = '';
+    const nextView = requestedViewAfterProject || 'profile';
+    requestedViewAfterProject = null;
     await selectProject(payload.project.id);
-    setView('profile');
+    setView(nextView);
   } catch (exception) { error.textContent = exception.message; }
   finally { button.disabled = false; }
 }
@@ -646,7 +668,7 @@ $('#querySearch').addEventListener('input', renderQueries);
 $('#menuButton').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
 $('#importButton').addEventListener('click', () => { $('#importModal').hidden = false; $('#directoryInput').focus(); });
 $('#dataImportButton').addEventListener('click', () => $('#importButton').click());
-$('#projectMenuButton').addEventListener('click', () => { renderProjects(); $('#projectModal').hidden = false; });
+$('#projectMenuButton').addEventListener('click', () => openProjectCenter());
 $$('[data-open-projects]').forEach((button) => button.addEventListener('click', () => $('#projectMenuButton').click()));
 $$('[data-remove-connection]').forEach((button) => button.addEventListener('click', () => removeConnection(button.dataset.removeConnection)));
 $('#createProjectButton').addEventListener('click', createNewProject);
@@ -663,7 +685,10 @@ $('#notificationButton').addEventListener('click',()=>{
   $('#notificationButton .notification-dot').hidden=true;
   $('#workflowBoard').scrollIntoView({behavior:'smooth',block:'start'});
 });
-$$('[data-close-project]').forEach((button) => button.addEventListener('click', () => $('#projectModal').hidden = true));
+$$('[data-close-project]').forEach((button) => button.addEventListener('click', () => {
+  requestedViewAfterProject = null;
+  $('#projectModal').hidden = true;
+}));
 $('#googleAction').addEventListener('click', googleAction);
 $('#saveGoogleConfig').addEventListener('click', saveGoogleConfig);
 $('#connectGoogle').addEventListener('click', connectGoogle);
@@ -678,5 +703,5 @@ $('#directoryInput').addEventListener('keydown', (event) => { if (event.key === 
 $('#drawerClose').addEventListener('click', closeDrawer); $('#drawerBackdrop').addEventListener('click', closeDrawer);
 $$('[data-close-workflow]').forEach((button) => button.addEventListener('click', closeWorkflowDetail));
 $('#workflowDetailModal').addEventListener('click', (event) => { if (event.target === $('#workflowDetailModal')) closeWorkflowDetail(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; $('#googleModal').hidden = true; $('#deploymentModal').hidden = true; closeWorkflowDetail(); closeDrawer(); } });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('#importModal').hidden = true; $('#projectModal').hidden = true; requestedViewAfterProject = null; $('#googleModal').hidden = true; $('#deploymentModal').hidden = true; closeWorkflowDetail(); closeDrawer(); } });
 loadProjects().catch((error) => { console.error(error); showToast('Veri yüklenemedi; sunucu bağlantısını kontrol et.', 'error'); });
