@@ -1,6 +1,6 @@
 {
   "name": "seo-autopilot",
-  "version": "0.12.3",
+  "version": "0.12.4",
   "private": true,
   "description": "Project-aware, human-approved Search Console opportunity engine.",
   "type": "commonjs",

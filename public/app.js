@@ -325,7 +325,13 @@ function initials(name) {
 function renderProjects() {
   $('.content').hidden = !state.project && !$('#view-settings').classList.contains('active');
   $('#emptyProjectPanel').hidden = Boolean(state.project);
-  $('#importButton').disabled = !state.project;
+  const importButton = $('#importButton');
+  importButton.disabled = false;
+  importButton.classList.toggle('needs-project', !state.project);
+  importButton.title = state.project ? '' : 'Veri içe aktarmak için önce bir proje ekle';
+  const dataStatus = $('#dataStatus');
+  dataStatus.classList.toggle('needs-project', !state.project);
+  dataStatus.title = state.project ? 'Veri kaynaklarını aç' : 'Yeni proje ekle';
   $$('.nav-item').forEach((button) => {
     const needsProject = !state.project && button.dataset.view !== 'settings';
     button.disabled = false;
@@ -666,8 +672,15 @@ $$('[data-go]').forEach((button) => button.addEventListener('click', () => setVi
 $$('.filter').forEach((button) => button.addEventListener('click', () => { $$('.filter').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.filter = button.dataset.filter; renderOpportunities(); }));
 $('#querySearch').addEventListener('input', renderQueries);
 $('#menuButton').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
-$('#importButton').addEventListener('click', () => { $('#importModal').hidden = false; $('#directoryInput').focus(); });
+$('#importButton').addEventListener('click', () => {
+  if (!state.project) { openProjectCenter('data'); return; }
+  $('#importModal').hidden = false; $('#directoryInput').focus();
+});
 $('#dataImportButton').addEventListener('click', () => $('#importButton').click());
+$('#dataStatus').addEventListener('click', () => {
+  if (!state.project) { openProjectCenter('data'); return; }
+  setView('data');
+});
 $('#projectMenuButton').addEventListener('click', () => openProjectCenter());
 $$('[data-open-projects]').forEach((button) => button.addEventListener('click', () => $('#projectMenuButton').click()));
 $$('[data-remove-connection]').forEach((button) => button.addEventListener('click', () => removeConnection(button.dataset.removeConnection)));
