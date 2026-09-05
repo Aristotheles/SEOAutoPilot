@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {URL} = require('node:url');
 const crypto = require('node:crypto');
+const {version: APP_VERSION} = require('./package.json');
 const {auditSecurity, sanitizeError, securityHeaders} = require('./src/security');
 const {loadExport} = require('./src/importer');
 const {analyzeExport} = require('./src/engine');
@@ -207,7 +208,7 @@ async function routeApi(request, response, requestUrl) {
     }
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
-    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: '0.11.0'}); return true;
+    json(response, 200, {ok: true, app: 'SEOAutoPilot', version: APP_VERSION}); return true;
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/projects') {
     json(response, 200, {projects: listProjects()}); return true;

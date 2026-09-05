@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SEOAutoPilot",
+  "version": "0.12.0",
+  "identifier": "com.aristotheles.seoautopilot",
+  "build": {
+    "frontendDist": "../tauri-loader"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "SEOAutoPilot",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 1080,
+        "minHeight": 700,
+        "center": true,
+        "resizable": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/node"],
+    "resources": {
+      "../server.js": "backend/server.js",
+      "../package.json": "backend/package.json",
+      "../src": "backend/src",
+      "../public": "backend/public"
+    },
+    "windows": {
+      "wix": {
+        "language": "tr-TR"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Turkish", "English"]
+      }
+    }
+  }
+}

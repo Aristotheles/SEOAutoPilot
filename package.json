@@ -1,6 +1,6 @@
 {
   "name": "seo-autopilot",
-  "version": "0.11.3",
+  "version": "0.12.0",
   "private": true,
   "description": "Project-aware, human-approved Search Console opportunity engine.",
   "type": "commonjs",
@@ -10,9 +10,15 @@
     "verify": "npm test && npm run check:secrets",
     "smoke": "node bin/smoke-test.mjs",
     "analyze": "node bin/analyze-export.mjs",
-    "start": "node server.js"
+    "start": "node server.js",
+    "tauri:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-tauri-sidecar.ps1",
+    "tauri:dev": "npm run tauri:prepare && tauri dev",
+    "tauri:build": "npm run tauri:prepare && tauri build"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
   }
 }

@@ -50,7 +50,7 @@ repository and published site.
 > the evidence visible, marks uncertainty, keeps consequential decisions human and
 > leaves a traceable record of what changed.
 
-> **Durum:** Aktif MVP (`0.11.x`). Windows üzerinde doğrulanır; Node.js 22+ bulunan
+> **Durum:** Aktif MVP (`0.12.x`). Windows üzerinde doğrulanır; Node.js 22+ bulunan
 > macOS/Linux sistemlerinde temel analiz ve arayüz çalışır. Firebase yayın adaptörünün
 > ana test platformu Windows'tur.
 
@@ -147,11 +147,36 @@ npm start
 Windows kullanıcıları `scripts/start-windows.cmd` dosyasını da çalıştırabilir.
 
 > [!CAUTION]
-> **Windows EXE geçici olarak geri çekildi.** `v0.11.2` ikili dosyası Microsoft
+> **Eski tek dosyalı Windows EXE geri çekildi.** `v0.11.2` ikili dosyası Microsoft
 > Defender tarafından `Trojan:Win32/Wacatac.B!ml` olarak karantinaya alındığı için
 > çalıştırılmadan yayından kaldırıldı. Defender istisnası eklemeyin ve dosyayı
-> karantinadan geri yüklemeyin. Güvenilir paketleme ve kod imzalama hattı
-> tamamlanana kadar yalnız kaynak kod sürümü yayımlanır.
+> karantinadan geri yüklemeyin. `v0.12.0` ile `pkg` tabanlı tek EXE paketlemesi
+> kaldırıldı; masaüstü sürümü Tauri ve SHA-256 değeri sabitlenmiş resmi Node.js
+> yardımcı programıyla standart MSI/NSIS paketi olarak derlenir. Paketler kod
+> imzalama hattı tamamlanana kadar “Bilinmeyen yayıncı” uyarısı gösterebilir.
+
+### Windows masaüstü paketini derleme
+
+Windows 10/11, WebView2, Rust stable ve Visual Studio 2022 C++ Build Tools gerekir.
+Derleme komutu resmi Node.js yardımcı programını `nodejs.org` üzerinden indirir,
+sabit SHA-256 değeriyle doğrular ve yalnız yerel derleme klasörüne koyar:
+
+```powershell
+npm ci
+npm run verify
+npm run tauri:build
+```
+
+Çıktılar:
+
+```text
+src-tauri/target/release/bundle/msi/SEOAutoPilot_<sürüm>_x64_tr-TR.msi
+src-tauri/target/release/bundle/nsis/SEOAutoPilot_<sürüm>_x64-setup.exe
+```
+
+Tauri kabuğu arayüzü WebView2 içinde açar. Node.js ayrı ve değiştirilmemiş bir
+yardımcı süreçtir; uygulama penceresi normal kapatıldığında o da kapatılır. Yerel
+proje verileri `%APPDATA%\com.aristotheles.seoautopilot` altında tutulur.
 
 Ardından `http://127.0.0.1:4173` adresini aç. Rapor bağlanmamış projeler veri
 bekliyor olarak gösterilir. Sağ üstteki **Veri içe aktar** düğmesiyle Search Console dışa aktarım

@@ -70,7 +70,9 @@ function withStateLock(operation) {
   while(!handle){
     try{handle=fs.openSync(LOCK_FILE,'wx',0o600);fs.writeFileSync(handle,`${process.pid}\n${Date.now()}\n`);}
     catch(error){
-      if(error.code!=='EEXIST')throw error;
+      const transient=error.code==='EEXIST' ||
+        (process.platform==='win32' && (error.code==='EPERM' || error.code==='EACCES'));
+      if(!transient)throw error;
       try{if(Date.now()-fs.statSync(LOCK_FILE).mtimeMs>30000)fs.unlinkSync(LOCK_FILE);}catch{ /* another process released it */ }
       if(Date.now()-started>=LOCK_TIMEOUT_MS)throw new Error('Proje verisi başka bir işlem tarafından kullanılıyor. Birkaç saniye sonra yeniden dene.');
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,12);
