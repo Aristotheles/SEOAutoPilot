@@ -78,7 +78,7 @@ async function loadInspection(id) {
     if(!response.ok)throw Error(job.error);
     $('#inspectSite').disabled=job.status==='running';
     if(job.status==='running'){
-      $('#inspectionProgress').textContent=`Site inceleniyor… ${job.pages} sayfa okundu. Bu sırada site değiştirilmez.`;
+      $('#inspectionProgress').textContent=`${AppI18n.t('Site inceleniyor…')} ${job.pages} ${AppI18n.t('sayfa okundu. Bu sırada site değiştirilmez.')}`;
       inspectionTimer=setTimeout(()=>loadInspection(id),1200);return;
     }
     if(job.status==='failed')throw Error(job.error);
