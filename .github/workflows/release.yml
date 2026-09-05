@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm run verify
       - run: npm run smoke
       - name: Build source archive and checksum
@@ -26,28 +28,68 @@ jobs:
           git archive --format=zip --output "$name.zip" HEAD
           $hash = (Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $name.zip" | Set-Content "$name.zip.sha256" -Encoding ascii
-      - name: Attest source archive
+      - name: Build Windows desktop installers
+        run: npm run tauri:build
+      - name: Scan installers with Windows Defender
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path src-tauri/target/release/bundle/nsis -Filter *.exe | Select-Object -First 1
+          $msi = Get-ChildItem -Path src-tauri/target/release/bundle/msi -Filter *.msi | Select-Object -First 1
+          if (-not $exe -or -not $msi) { throw "Expected Tauri bundle outputs (nsis .exe / msi .msi) were not found." }
+          "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+          "MSI_PATH=$($msi.FullName)" >> $env:GITHUB_ENV
+          $mpcmd = Get-ChildItem -Path "$env:ProgramData\Microsoft\Windows Defender\Platform" -Filter MpCmdRun.exe -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $mpcmd) { throw "MpCmdRun.exe (Windows Defender) was not found on this runner; refusing to publish an unscanned build." }
+          foreach ($file in @($exe.FullName, $msi.FullName)) {
+            Write-Host "Scanning $file with Windows Defender..."
+            & $mpcmd.FullName -Scan -ScanType 3 -File $file
+            if ($LASTEXITCODE -ne 0) { throw "Windows Defender flagged $file (exit code $LASTEXITCODE). Refusing to publish." }
+          }
+      - name: Compute installer checksums
+        shell: pwsh
+        run: |
+          foreach ($path in @($env:EXE_PATH, $env:MSI_PATH)) {
+            $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            $name = Split-Path -Leaf $path
+            "$hash  $name" | Set-Content "$path.sha256" -Encoding ascii
+          }
+      - name: Attest release artifacts
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: |
             SEOAutoPilot-${{ github.ref_name }}-portable.zip
+            ${{ env.EXE_PATH }}
+            ${{ env.MSI_PATH }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: SEOAutoPilot-${{ github.ref_name }}-source
           path: |
             SEOAutoPilot-${{ github.ref_name }}-portable.zip
             SEOAutoPilot-${{ github.ref_name }}-portable.zip.sha256
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SEOAutoPilot-${{ github.ref_name }}-windows
+          path: |
+            ${{ env.EXE_PATH }}
+            ${{ env.EXE_PATH }}.sha256
+            ${{ env.MSI_PATH }}
+            ${{ env.MSI_PATH }}.sha256
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           @'
-          > [!IMPORTANT]
-          > Bu sürüm yalnız kaynak arşividir. Windows EXE, güvenilir kod imzalama süreci tamamlanana kadar yayımlanmaz.
+          > [!NOTE]
+          > Bu derleme henüz ücretli bir kod imzalama sertifikasıyla imzalanmadı; Windows SmartScreen ilk çalıştırmada bir uyarı gösterebilir ("Daha fazla bilgi" -> "Yine de çalıştır"). Kurucu dosyalar yayımlanmadan önce bu iş akışında Windows Defender ile tarandı.
 
-          This is a source-only release. No Windows EXE is published until a trustworthy code-signing pipeline is available. SHA-256 and GitHub artifact attestation are included.
+          This build is not signed with a paid code-signing certificate yet, so Windows SmartScreen may show a warning on first run ("More info" -> "Run anyway"). The installers were scanned with Windows Defender in this workflow before publishing. SHA-256 checksums and GitHub artifact attestations are included for verification.
           '@ | Set-Content release-notes.md -Encoding utf8
           gh release create "${{ github.ref_name }}" --verify-tag --notes-file release-notes.md `
             "SEOAutoPilot-${{ github.ref_name }}-portable.zip" `
-            "SEOAutoPilot-${{ github.ref_name }}-portable.zip.sha256"
+            "SEOAutoPilot-${{ github.ref_name }}-portable.zip.sha256" `
+            "$env:EXE_PATH" `
+            "$env:EXE_PATH.sha256" `
+            "$env:MSI_PATH" `
+            "$env:MSI_PATH.sha256"
