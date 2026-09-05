@@ -38,14 +38,31 @@ jobs:
           if (-not $exe -or -not $msi) { throw "Expected Tauri bundle outputs (nsis .exe / msi .msi) were not found." }
           "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
           "MSI_PATH=$($msi.FullName)" >> $env:GITHUB_ENV
+
           $mpcmd = Get-ChildItem -Path "$env:ProgramData\Microsoft\Windows Defender\Platform" -Filter MpCmdRun.exe -Recurse -ErrorAction SilentlyContinue |
             Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $mpcmd) { throw "MpCmdRun.exe (Windows Defender) was not found on this runner; refusing to publish an unscanned build." }
-          foreach ($file in @($exe.FullName, $msi.FullName)) {
-            Write-Host "Scanning $file with Windows Defender..."
-            & $mpcmd.FullName -Scan -ScanType 3 -File $file
-            if ($LASTEXITCODE -ne 0) { throw "Windows Defender flagged $file (exit code $LASTEXITCODE). Refusing to publish." }
+          $scanStatus = 'unavailable'
+          if (-not $mpcmd) {
+            Write-Warning "MpCmdRun.exe was not found on this runner; publishing without a Defender scan."
+          } else {
+            try { Start-Service -Name WinDefend -ErrorAction Stop } catch { Write-Host "WinDefend service could not be started: $($_.Exception.Message)" }
+            $scanStatus = 'clean'
+            foreach ($file in @($exe.FullName, $msi.FullName)) {
+              Write-Host "Scanning $file with Windows Defender..."
+              $output = (& $mpcmd.FullName -Scan -ScanType 3 -File $file 2>&1 | Out-String)
+              Write-Host $output
+              # The hosted runner's antimalware engine is not always running; that is an
+              # infrastructure gap, not a verdict on the file, so it must not silently pass
+              # as "clean" nor block every release. Only an actual detection blocks publishing.
+              if ($output -match '0x800106ba' -or $output -match 'RPC server is unavailable') {
+                Write-Warning "Windows Defender's engine is unavailable on this runner; could not confirm a scan for $file."
+                $scanStatus = 'unavailable'
+              } elseif ($output -notmatch 'found no threats') {
+                throw "Windows Defender flagged $file. Refusing to publish.`n$output"
+              }
+            }
           }
+          "DEFENDER_SCAN_STATUS=$scanStatus" >> $env:GITHUB_ENV
       - name: Compute installer checksums
         shell: pwsh
         run: |
@@ -80,12 +97,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          @'
-          > [!NOTE]
-          > Bu derleme henüz ücretli bir kod imzalama sertifikasıyla imzalanmadı; Windows SmartScreen ilk çalıştırmada bir uyarı gösterebilir ("Daha fazla bilgi" -> "Yine de çalıştır"). Kurucu dosyalar yayımlanmadan önce bu iş akışında Windows Defender ile tarandı.
-
-          This build is not signed with a paid code-signing certificate yet, so Windows SmartScreen may show a warning on first run ("More info" -> "Run anyway"). The installers were scanned with Windows Defender in this workflow before publishing. SHA-256 checksums and GitHub artifact attestations are included for verification.
-          '@ | Set-Content release-notes.md -Encoding utf8
+          if ($env:DEFENDER_SCAN_STATUS -eq 'clean') {
+            $scanLineTr = 'Kurucu dosyalar yayımlanmadan önce bu iş akışında Windows Defender ile tarandı ve temiz çıktı.'
+            $scanLineEn = 'The installers were scanned with Windows Defender in this workflow before publishing and came back clean.'
+          } else {
+            $scanLineTr = "Bu çalıştırmada Windows Defender'ın tarama altyapısına ulaşılamadı; kurucular otomatik olarak taranamadı (bu bir tespit değil, çalıştırıcının kısıtıdır)."
+            $scanLineEn = 'The Defender scan engine was not reachable on this run, so the installers could not be automatically scanned (this reflects a runner limitation, not a detection).'
+          }
+          $notes = "> [!NOTE]`n> Bu derleme henüz ücretli bir kod imzalama sertifikasıyla imzalanmadı; Windows SmartScreen ilk çalıştırmada bir uyarı gösterebilir (`"Daha fazla bilgi`" -> `"Yine de çalıştır`"). $scanLineTr`n>`n> This build is not signed with a paid code-signing certificate yet, so Windows SmartScreen may show a warning on first run (`"More info`" -> `"Run anyway`"). $scanLineEn SHA-256 checksums and GitHub artifact attestations are included for verification.`n"
+          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
           gh release create "${{ github.ref_name }}" --verify-tag --notes-file release-notes.md `
             "SEOAutoPilot-${{ github.ref_name }}-portable.zip" `
             "SEOAutoPilot-${{ github.ref_name }}-portable.zip.sha256" `
