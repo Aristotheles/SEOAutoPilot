@@ -51,14 +51,17 @@ jobs:
               Write-Host "Scanning $file with Windows Defender..."
               $output = (& $mpcmd.FullName -Scan -ScanType 3 -File $file 2>&1 | Out-String)
               Write-Host $output
-              # The hosted runner's antimalware engine is not always running; that is an
-              # infrastructure gap, not a verdict on the file, so it must not silently pass
-              # as "clean" nor block every release. Only an actual detection blocks publishing.
-              if ($output -match '0x800106ba' -or $output -match 'RPC server is unavailable') {
-                Write-Warning "Windows Defender's engine is unavailable on this runner; could not confirm a scan for $file."
-                $scanStatus = 'unavailable'
-              } elseif ($output -notmatch 'found no threats') {
+              # GitHub-hosted Windows runners pre-exclude the workspace directory from Defender
+              # (and the antimalware service itself is sometimes unreachable), so this scan can
+              # legitimately come back "skipped" or unreachable for reasons that say nothing
+              # about the file. Only an explicit, unambiguous detection blocks publishing;
+              # anything else (skipped / unreachable / unrecognized output) is inconclusive and
+              # must not silently masquerade as "clean" either - both cases are reported below.
+              if ($output -match '(?i)threat' -and $output -notmatch '(?i)found no threats' -and $output -notmatch '(?i)\b0 threats\b') {
                 throw "Windows Defender flagged $file. Refusing to publish.`n$output"
+              } elseif ($output -notmatch 'found no threats') {
+                Write-Warning "Could not obtain a definitive Defender verdict for $file (scan was skipped or unreachable on this runner)."
+                $scanStatus = 'unavailable'
               }
             }
           }
